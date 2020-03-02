@@ -3,7 +3,7 @@
 
 #include "c_QueueSlot.h"
 
-enum QueueStatus
+enum class QueueStatus
 {
     QUEUEISWORKING, QUEUEISFULL, QUEUEISEMPTY, NONE
 }
@@ -120,7 +120,7 @@ public:
         int currentNumWaitingTasks = handleNumWaitingTasks(1);
         //printf("Number of waiting tasks: %d. From global threadId: %d\n", currentNumWaitingTasks, threadIdx.x + blockIdx.x*blockDim.x);
 
-        QueueStatus status = None;
+        QueueStatus status = QueueStatus::NONE;
 
         if (!isFull(currentNumWaitingTasks)) // if queue is not full
         {
@@ -133,13 +133,13 @@ public:
             }
             //printf("Store in queue[%d], local threadId: %d, global threadId: %d\n", index, queue[index], threadIdx.x + blockIdx.x*blockDim.x);
 
-            status = QUEUEISWORKING;
+            status = QueueStatus::QUEUEISWORKING;
             return status;
         }
         else
         {
             //printf("\nQueue is full. From global threadId %d. _rearIdx: %d. # of waiting tasks%d\n", threadIdx.x + blockIdx.x*blockDim.x, _rearIdx, _numWaitingTasks);
-            status = QUEUEISFULL;
+            status = QueueStatus::QUEUEISFULL;
             return status;
         }
     }
@@ -149,7 +149,7 @@ public:
         int currentNumWaitingTasks = handleNumWaitingTasks(-1);
         //printf("Number of waiting tasks: %d. From global threadId %d\n", currentNumWaitingTasks, threadIdx.x + blockIdx.x*blockDim.x);
         
-        QueueStatus status = None;
+        QueueStatus status = QueueStatus::NONE;
 
         if (!isEmpty(currentNumWaitingTasks)) // if queue have waiting tasks
         {
@@ -162,13 +162,13 @@ public:
             }
             //printf("Get from queue[%d], local threadId: %d, global threadId: %d\n", index, queue[index], threadIdx.x + blockIdx.x*blockDim.x);
 
-            status = QUEUEISWORKING; 
+            status = QueueStatus::QUEUEISWORKING; 
             return status;
         }
         else
         {
             //printf("\nQueue is empty. From global threadId %d. _frontIdx: %d. # of Waiting Tasks: %d\n", threadIdx.x + blockIdx.x*blockDim.x, _frontIdx, _numWaitingTasks);
-            status = QUEUEISEMPTY;
+            status = QueueStatus::QUEUEISEMPTY;
             return status;
         }
     }
