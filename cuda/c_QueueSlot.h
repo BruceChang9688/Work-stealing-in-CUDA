@@ -11,7 +11,6 @@ typedef struct
 
 struct QueueSlot
 {
-    //TODO: insert some data type
     int pixelIndex;
     Task task;
 };
