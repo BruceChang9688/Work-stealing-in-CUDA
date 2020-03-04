@@ -18,6 +18,12 @@
 
 #include <fstream>
 #include <unistd.h>
+#include<stdio.h>
+#include<stdlib.h>
+#include <iostream>
+#include <time.h>
+#include <curand.h>
+#include <curand_kernel.h>
 
 #define MAX_DEPTH 8
 
@@ -254,13 +260,25 @@ Color compute_pixelcolor (Ray first_ray,
   return pixelcolor;
 }
 
+
+__global__ 
+void init_stuff(unsigned int seed,curandState *state) {
+ int idx = blockIdx.x * blockDim.x + threadIdx.x;
+//  curand_init(1337, idx, 0, &state[idx]);
+ curand_init(seed, /* the seed can be the same for each core, here we pass the time in from the CPU */
+              idx, /* the sequence number should be different for each core (unless you want all
+                             cores to get the same sequence of numbers for some reason - use thread id! */
+              0, /* the offset is how much extra we advance in the sequence for each call, can be 0 */
+              &state[idx]);
+}
+
   __global__ 
 void k_trace (Image *d_image, 
     Plane *d_planes, int num_planes,
     Sphere *d_spheres, int num_spheres,
     Light *d_lights, int num_lights, 
     float aspect_ratio, float tanFov,
-    int width, int height)
+    int width, int height,curandState *state)
 {
   int outerOffset = (blockIdx.x * gridDim.y + blockIdx.y) 
     * (blockDim.x * blockDim.y);
@@ -269,6 +287,13 @@ void k_trace (Image *d_image,
 
   if (final_offset < width * height)
   {
+    for(int i=0;i<10;i++)
+    {
+      float m = curand_uniform(&state[final_offset]);
+      float n = curand_uniform(&state[final_offset]);
+      if(final_offset==0)
+      printf ("random numbers:  %f \t %f \n",m,n);
+    }
     int y = final_offset / width;
     int x = final_offset % width;
     float yu = (1 - 2 * ((y + 0.5) * 1 / float(height))) * tanFov;
