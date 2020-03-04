@@ -15,6 +15,7 @@
 #include "c_Sphere.h"
 #include "c_Light.h"
 #include "c_Color.h"
+#include "c_Queue.h"
 
 #include <fstream>
 #include <unistd.h>
@@ -193,7 +194,7 @@ Color compute_pixelcolor (Ray first_ray,
         Vector3D light_direction = (d_lights[i].position () - intersection_point);
 
         float light_lenght = light_direction.normalize ();
-        const Ray shadow_ray (intersection_point + normal * bias, light_direction,
+        const Ray shadow_ray(intersection_point + normal * bias, light_direction,
             light_lenght);
         near = INFINITY;
 
@@ -262,28 +263,43 @@ void k_trace (Image *d_image,
     float aspect_ratio, float tanFov,
     int width, int height)
 {
-  int outerOffset = (blockIdx.x * gridDim.y + blockIdx.y) 
-    * (blockDim.x * blockDim.y);
-  int innerOffset = threadIdx.x * blockDim.y + threadIdx.y;
-  int final_offset = outerOffset + innerOffset;
+    extern __shared__ QueueSlot slots[];
+    __shared__ int queueParam[4];
+    __shared__ Queue queue;
 
-  if (final_offset < width * height)
-  {
-    int y = final_offset / width;
-    int x = final_offset % width;
-    float yu = (1 - 2 * ((y + 0.5) * 1 / float(height))) * tanFov;
-    float xu = (2 * ((x + 0.5) * 1 / float (width)) - 1) * tanFov * aspect_ratio;
-    Point origin (0.0f, 5.0f, 20.0f);
-    Ray ray (origin, Vector3D (xu, yu, -1));
-
-    d_image[final_offset] = compute_pixelcolor(ray, d_planes, num_planes,
-        d_spheres, num_spheres, d_lights, num_lights, 0);
-
-    if(final_offset == 0)
+    if(threadIdx.x == 0)
     {
-      printf("(DEVICE) d_image color: (%f, %f, %f)\n", d_image[0].r(), d_image[0].g(), d_image[0].b());
+        queueParam[CAPACITY] = capacity;
+        queueParam[REARIDX] = 0;
+        queueParam[FRONTIDX] = 0;
+        queueParam[NUMWAITINGTASKS] = 0;
+        
+        queue.set(slots, queueParam);
     }
-  }
+    __syncthreads();
+
+    int outerOffset = (blockIdx.x * gridDim.y + blockIdx.y) 
+      * (blockDim.x * blockDim.y);
+    int innerOffset = threadIdx.x * blockDim.y + threadIdx.y;
+    int final_offset = outerOffset + innerOffset;
+
+    if (final_offset < width * height)
+    {
+        int y = final_offset / width;
+        int x = final_offset % width;
+        float yu = (1 - 2 * ((y + 0.5) * 1 / float(height))) * tanFov;
+        float xu = (2 * ((x + 0.5) * 1 / float (width)) - 1) * tanFov * aspect_ratio;
+        Point origin (0.0f, 5.0f, 20.0f);
+        Ray ray (origin, Vector3D (xu, yu, -1));
+
+        d_image[final_offset] = compute_pixelcolor(ray, d_planes, num_planes,
+            d_spheres, num_spheres, d_lights, num_lights, 0);
+
+        if(final_offset == 0)
+        {
+            printf("(DEVICE) d_image color: (%f, %f, %f)\n", d_image[0].r(), d_image[0].g(), d_image[0].b());
+        }
+    }
 }
 
 bool c_initScene (Sphere **spheres, int *num_spheres, 

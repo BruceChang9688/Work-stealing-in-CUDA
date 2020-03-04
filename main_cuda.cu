@@ -49,11 +49,11 @@ int main (int argc, char** argv)
 	std::string filename = "out.ppm";
 
   Image* d_image;
-  num_bytes = (width * height) * sizeof(Color);
+  num_bytes = (width*height)*sizeof(Color);
   checkCudaError(cudaMallocManaged(&d_image, num_bytes));
   memset(d_image, 0, num_bytes);
 
-  dim3 threadsPerBlock (16, 16);
+  dim3 threadsPerBlock(16, 16);
   dim3 numBlocks;
 
 	
@@ -81,8 +81,7 @@ int main (int argc, char** argv)
 
     printf ("Blocks: %d x %d\n", numBlocks.x, numBlocks.y);
 
-    k_trace <<<numBlocks, threadsPerBlock>>> 
-      (d_image, d_planes, num_planes, d_spheres, num_spheres, d_lights, 
+    k_trace<<<numBlocks, threadsPerBlock>>>(d_image, d_planes, num_planes, d_spheres, num_spheres, d_lights, 
        num_lights, aspect_ratio, tanFov, width, height);
     cudaDeviceSynchronize();
     cudaCheckErrors("Calling kernel k_test");
