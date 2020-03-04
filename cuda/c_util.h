@@ -278,6 +278,11 @@ void k_trace (Image *d_image,
 
     d_image[final_offset] = compute_pixelcolor(ray, d_planes, num_planes,
         d_spheres, num_spheres, d_lights, num_lights, 0);
+
+    if(final_offset == 0)
+    {
+      printf("(DEVICE) d_image color: (%f, %f, %f)\n", d_image[0].r(), d_image[0].g(), d_image[0].b());
+    }
   }
 }
 

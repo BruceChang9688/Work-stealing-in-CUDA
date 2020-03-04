@@ -13,22 +13,18 @@
 #include <string>
 #include <sys/time.h>
 
+#define checkCudaError(e) { checkCudaErrorImpl(e, __FILE__, __LINE__); }
+
+inline void checkCudaErrorImpl(cudaError_t e, const char* file, int line, bool abort = true) {
+    if (e != cudaSuccess) {
+        fprintf(stderr, "[CUDA Error] %s - %s:%d\n", cudaGetErrorString(e), file, line);
+        if (abort) exit(e);
+    }
+}
 
 int main (int argc, char** argv)
 {
-  int num_bytes, num_spheres, num_planes, num_lights;
-  timeval t_start, t_end;
-  double elapsed_time;
-	Image *h_image, *d_image;
-  Sphere *d_spheres;
-  Plane *d_planes;
-  Light *d_lights;
-	std::string filename = "out.ppm";
-
-  dim3 threadsPerBlock (16, 16);
-  dim3 numBlocks;
-
-	if (argc < 3)
+  if (argc < 3)
 	{
 		printf ("Usage: %s <widht> <height> [<fov>]\n", argv[0]);
 		return 0;
@@ -37,24 +33,41 @@ int main (int argc, char** argv)
 	int width = atoi (argv[1]);;
 	int height = atoi (argv[2]);;
 
-  num_bytes = (width * height) * sizeof(Color);
-
+  
 	float fov = 60.0;
   if (argc >= 4)
   {
     fov = atof (argv[3]);
   }
 
+  int num_bytes, num_spheres, num_planes, num_lights;
+  timeval t_start, t_end;
+  double elapsed_time;
+  Sphere *d_spheres;
+  Plane *d_planes;
+  Light *d_lights;
+	std::string filename = "out.ppm";
+
+  Image* d_image;
+  num_bytes = (width * height) * sizeof(Color);
+  checkCudaError(cudaMallocManaged(&d_image, num_bytes));
+  memset(d_image, 0, num_bytes);
+
+  dim3 threadsPerBlock (16, 16);
+  dim3 numBlocks;
+
+	
+
   gettimeofday (&t_start, NULL);
 
-  h_image = new Image[width * height];
+  // h_image = new Image[width * height];
 
   if (c_initScene (&d_spheres, &num_spheres, 
         &d_planes, &num_planes,
         &d_lights, &num_lights))
   {
-    //Allocation of memory for the scene on device
-    cudaMalloc (&d_image, num_bytes);
+    // //Allocation of memory for the scene on device
+    // cudaMalloc (&d_image, num_bytes);
 
     numBlocks = dim3 (width/threadsPerBlock.x + 1, height/threadsPerBlock.y + 1);
 
@@ -71,7 +84,8 @@ int main (int argc, char** argv)
     k_trace <<<numBlocks, threadsPerBlock>>> 
       (d_image, d_planes, num_planes, d_spheres, num_spheres, d_lights, 
        num_lights, aspect_ratio, tanFov, width, height);
-    cudaCheckErrors ("Calling kernel k_test");
+    cudaDeviceSynchronize();
+    cudaCheckErrors("Calling kernel k_test");
 
     gettimeofday (&t_end, NULL);
 
@@ -81,15 +95,15 @@ int main (int argc, char** argv)
     printf ("\r100.00%%");
     printf ("\nFinished!\n");
     printf ("Rendering time: %.3f s\n", elapsed_time/1000.0);
-
-    cudaMemcpy (h_image, d_image, num_bytes, cudaMemcpyDeviceToHost);
-    writePPMFile (h_image, "cuda.ppm", width, height);
+    
+    printf("(HOST) d_image color: (%f, %f, %f)\n", d_image[0].r(), d_image[0].g(), d_image[0].b());
+    //cudaMemcpy (h_image, d_image, num_bytes, cudaMemcpyDeviceToHost);
+    //writePPMFile (d_image, "cuda.ppm", width, height);
   }
   else
     printf ("ERROR. Exiting...\n");
 
-  delete h_image;
-  cudaFree (d_image);
+  checkCudaError(cudaFree(d_image));
   cudaFree (d_planes);
   cudaFree (d_spheres);
   cudaFree (d_lights);
