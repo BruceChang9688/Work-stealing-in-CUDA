@@ -15,6 +15,8 @@
 #include <unistd.h>
 #include <curand.h>
 #include <curand_kernel.h>
+#include <cuda.h>
+#include <cuda_runtime.h>
 
 #define checkCudaError(e) { checkCudaErrorImpl(e, __FILE__, __LINE__); }
 
@@ -86,11 +88,19 @@ int main (int argc, char** argv)
 
     curandState *d_state;
     cudaMalloc(&d_state, width*height);
-    init_stuff<<<numBlocks, threadsPerBlock>>>(time(0),d_state);
+    init_stuff<<<numBlocks, threadsPerBlock>>>(time(0), d_state);
 
-    k_trace <<<numBlocks, threadsPerBlock>>> 
-      (d_image, d_planes, num_planes, d_spheres, num_spheres, d_lights, 
-       num_lights, aspect_ratio, tanFov, width, height,d_state);
+  
+    float portion = 0.05f;    // the portion of tasks will be put into the shared memory
+    int numRay = 100;    // # of rays for antialiasing
+    int capacity = portion*numRay*threadsPerBlock.x*threadsPerBlock.y;
+    printf("The size of allocated shared memory (Bytes): %d\n", capacity*sizeof(QueueSlot));
+
+    printf ("IN KERNEL\n");
+    k_trace <<<numBlocks, threadsPerBlock, capacity*sizeof(QueueSlot)>>>
+    (d_image, d_planes, num_planes, d_spheres, num_spheres, d_lights, 
+     num_lights, aspect_ratio, tanFov, width, height, d_state,
+     numRay, portion, capacity);
     cudaDeviceSynchronize();
     cudaCheckErrors ("Calling kernel k_test");
 

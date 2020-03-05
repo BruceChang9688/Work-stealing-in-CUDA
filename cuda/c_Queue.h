@@ -130,7 +130,7 @@ public:
     __device__ QueueStatus dequeue(QueueSlot &data)
     {
         int currentNumWaitingTasks = handleNumWaitingTasks(-1);
-        printf("Number of waiting tasks: %d. From global threadId %d\n", currentNumWaitingTasks, threadIdx.x + blockIdx.x*blockDim.x);
+        //printf("Number of waiting tasks: %d. From global threadId %d\n", currentNumWaitingTasks, threadIdx.x + blockIdx.x*blockDim.x);
         
         QueueStatus status = QueueStatus::NONE;
 
