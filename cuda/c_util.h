@@ -144,16 +144,9 @@ Color compute_pixelcolor (Ray first_ray,
     Plane *d_planes, int num_planes,
     Sphere *d_spheres, int num_spheres,
     Light * d_lights, int num_lights,
-    int depth)
+    int depth,Task *tasks)
 {
   Color pixelcolor (0.0f);
-  Task tasks [MAX_DEPTH];
-
-  Task t0;
-  t0.ray = first_ray;
-  t0.intensity = 1.0;
-  tasks [0] = t0;
-
   int tasks_count = 1;
 
   //I implemented an iteractive version of raytracing, once
@@ -263,13 +256,16 @@ Color compute_pixelcolor (Ray first_ray,
 
 __global__ 
 void init_stuff(unsigned int seed,curandState *state) {
- int idx = blockIdx.x * blockDim.x + threadIdx.x;
+ int outerOffset = (blockIdx.x * gridDim.y + blockIdx.y) 
+    * (blockDim.x * blockDim.y);
+  int innerOffset = threadIdx.x * blockDim.y + threadIdx.y;
+  int final_offset = outerOffset + innerOffset;
 //  curand_init(1337, idx, 0, &state[idx]);
  curand_init(seed, /* the seed can be the same for each core, here we pass the time in from the CPU */
-              idx, /* the sequence number should be different for each core (unless you want all
+              final_offset, /* the sequence number should be different for each core (unless you want all
                              cores to get the same sequence of numbers for some reason - use thread id! */
               0, /* the offset is how much extra we advance in the sequence for each call, can be 0 */
-              &state[idx]);
+              &state[final_offset]);
 }
 
   __global__ 
@@ -287,22 +283,40 @@ void k_trace (Image *d_image,
 
   if (final_offset < width * height)
   {
-    for(int i=0;i<10;i++)
+    Color pixelcolor (0.0f);
+    int y = final_offset / width;
+    int x = final_offset % width;
+    Task tasks [MAX_DEPTH];
+    for(int i=0;i<100;i++)
     {
       float m = curand_uniform(&state[final_offset]);
       float n = curand_uniform(&state[final_offset]);
-      if(final_offset==0)
-      printf ("random numbers:  %f \t %f \n",m,n);
+      m = m-0.5;
+      n = n-0.5;
+      //printf ("random numbers:  %f \t %f \n",m,n);
+      float yu = (1 - 2 * ((y + 0.5+n) * 1 / (height))) * tanFov;
+      float xu = (2 * ((x + 0.5+m) * 1 / float (width)) - 1) * tanFov * aspect_ratio;
+      Point origin (0.0f, 5.0f, 20.0f);
+      // if((final_offset==0)||(final_offset==1))
+      // {
+      // printf ("random numbers:  %f \t %f \n",xu,yu);
+      // }
+      Ray ray (origin, Vector3D (xu, yu, -1));
+      
+      Task t0;
+      t0.ray = ray;
+      t0.intensity = 1.0;
+      tasks [0] = t0;
+      pixelcolor += compute_pixelcolor(ray, d_planes, num_planes,
+        d_spheres, num_spheres, d_lights, num_lights, 0,tasks);
+      // if((final_offset==0)||(final_offset==1))
+      // {
+      // printf ("color:  %f \t %f \t %f \n",pixelcolor._r,pixelcolor._g,pixelcolor._b);
+      // }
     }
-    int y = final_offset / width;
-    int x = final_offset % width;
-    float yu = (1 - 2 * ((y + 0.5) * 1 / float(height))) * tanFov;
-    float xu = (2 * ((x + 0.5) * 1 / float (width)) - 1) * tanFov * aspect_ratio;
-    Point origin (0.0f, 5.0f, 20.0f);
-    Ray ray (origin, Vector3D (xu, yu, -1));
-
-    d_image[final_offset] = compute_pixelcolor(ray, d_planes, num_planes,
-        d_spheres, num_spheres, d_lights, num_lights, 0);
+    pixelcolor/=float(100.0);
+    d_image[final_offset] = pixelcolor; 
+    
   }
 }
 
