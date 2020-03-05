@@ -128,14 +128,24 @@ inline __device__ Color operator * (const Color& c1, const Color& c2)
 	return Color (c1.r () * c2.r (), c1.g () * c2.g (), c1.b () * c2.b ());
 }
 
-inline __device__ Color operator +(const Color& c1, const Color& c2)
+inline __host__ __device__ Color operator / (const Color& c, float f)
+{
+	return Color (c.r () / f, c.g () / f, c.b () / f);
+}
+
+inline __device__ Color operator / (float f, const Color& c)
+{
+	return Color (c.r () / f, c.g () / f, c.b () / f);
+}
+
+inline __device__ Color operator + (const Color& c1, const Color& c2)
 {
     return Color(c1.r() + c2.r(),
                  c1.g() + c2.g(),
                  c1.b() + c2.b());
 }
 
-inline __device__ Color operator +(const Color& c, const float& f)
+inline __device__ Color operator + (const Color& c, const float& f)
 {
     return Color(c.r() + f,
                  c.g() + f,

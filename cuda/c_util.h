@@ -19,6 +19,8 @@
 
 #include <fstream>
 #include <unistd.h>
+#include <curand.h>
+#include <curand_kernel.h>
 
 #define MAX_DEPTH 8
 
@@ -43,12 +45,6 @@ enum intersection_type
 {
   NONE, PLANE, SPHERE
 };
-
-typedef struct
-{
-  Ray ray;
-  float intensity;
-} Task;
 
   __device__ 
 Color ambientColor (const Color& color)
@@ -235,8 +231,7 @@ Color compute_pixelcolor (Ray first_ray,
         //generated this ray
         new_task.intensity = intersection_reflection * current_task.intensity;
 
-        Vector3D refl_dir = ray.direction ()
-          - normal * 2 * ray.direction ().dot (normal);
+        Vector3D refl_dir = ray.direction () - normal * 2 * ray.direction ().dot (normal);
         refl_dir.normalize ();
 
         new_task.ray = Ray (intersection_point + normal * bias, refl_dir);
@@ -247,7 +242,7 @@ Color compute_pixelcolor (Ray first_ray,
     }
     
     color = color * current_task.intensity;
-    pixelcolor += color;
+    pixelcolor = pixelcolor + color;
 
   } while (depth <= MAX_DEPTH);
 
@@ -261,7 +256,7 @@ void k_trace (Image *d_image,
     Sphere *d_spheres, int num_spheres,
     Light *d_lights, int num_lights, 
     float aspect_ratio, float tanFov,
-    int width, int height)
+    int width, int height, curandState* state)
 {
     extern __shared__ QueueSlot slots[];
     __shared__ int queueParam[4];
@@ -269,7 +264,7 @@ void k_trace (Image *d_image,
 
     if(threadIdx.x == 0)
     {
-        queueParam[CAPACITY] = capacity;
+        queueParam[CAPACITY] = 10;
         queueParam[REARIDX] = 0;
         queueParam[FRONTIDX] = 0;
         queueParam[NUMWAITINGTASKS] = 0;
@@ -287,19 +282,45 @@ void k_trace (Image *d_image,
     {
         int y = final_offset / width;
         int x = final_offset % width;
-        float yu = (1 - 2 * ((y + 0.5) * 1 / float(height))) * tanFov;
-        float xu = (2 * ((x + 0.5) * 1 / float (width)) - 1) * tanFov * aspect_ratio;
+        Color pixelColor(0.0f);
         Point origin (0.0f, 5.0f, 20.0f);
-        Ray ray (origin, Vector3D (xu, yu, -1));
+        
+        Ray ray;
+        ray.setOrigin(origin);
 
-        d_image[final_offset] = compute_pixelcolor(ray, d_planes, num_planes,
-            d_spheres, num_spheres, d_lights, num_lights, 0);
+        for(int i = 0; i < 100; i++)
+        {
+          float m = curand_uniform(&state[final_offset]) - 0.5;
+          float n = curand_uniform(&state[final_offset]) - 0.5;
+
+          float yu = (1 - 2 * ((y + 0.5 + m) * 1 / float(height))) * tanFov;
+          float xu = (2 * ((x + 0.5 + n) * 1 / float(width)) - 1) * tanFov * aspect_ratio;
+
+          ray.setDirection(Vector3D(xu, yu, -1));
+
+          pixelColor = pixelColor + compute_pixelcolor(ray, d_planes, num_planes,
+              d_spheres, num_spheres, d_lights, num_lights, 0);
+        }
+        
+        pixelColor = pixelColor / 100.0f;
+        d_image[final_offset] = pixelColor;
 
         if(final_offset == 0)
         {
             printf("(DEVICE) d_image color: (%f, %f, %f)\n", d_image[0].r(), d_image[0].g(), d_image[0].b());
         }
     }
+}
+
+__global__ 
+void init_stuff(unsigned int seed, curandState* state) {
+ int idx = blockIdx.x * blockDim.x + threadIdx.x;
+//  curand_init(1337, idx, 0, &state[idx]);
+ curand_init(seed, /* the seed can be the same for each core, here we pass the time in from the CPU */
+              idx, /* the sequence number should be different for each core (unless you want all
+                             cores to get the same sequence of numbers for some reason - use thread id! */
+              0, /* the offset is how much extra we advance in the sequence for each call, can be 0 */
+              &state[idx]);
 }
 
 bool c_initScene (Sphere **spheres, int *num_spheres, 

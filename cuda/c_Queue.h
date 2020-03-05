@@ -3,6 +3,9 @@
 
 #include "c_QueueSlot.h"
 
+#include <stdlib.h>
+#include <stdio.h>
+
 enum class QueueStatus
 {
     QUEUEISWORKING, QUEUEISFULL, QUEUEISEMPTY, NONE
