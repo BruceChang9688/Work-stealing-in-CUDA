@@ -15,10 +15,13 @@
 #include "c_Sphere.h"
 #include "c_Light.h"
 #include "c_Color.h"
-#include "c_Queue.h"
 
 #include <fstream>
 #include <unistd.h>
+#include<stdio.h>
+#include<stdlib.h>
+#include <iostream>
+#include <time.h>
 #include <curand.h>
 #include <curand_kernel.h>
 
@@ -45,6 +48,12 @@ enum intersection_type
 {
   NONE, PLANE, SPHERE
 };
+
+typedef struct
+{
+  Ray ray;
+  float intensity;
+} Task;
 
   __device__ 
 Color ambientColor (const Color& color)
@@ -135,16 +144,9 @@ Color compute_pixelcolor (Ray first_ray,
     Plane *d_planes, int num_planes,
     Sphere *d_spheres, int num_spheres,
     Light * d_lights, int num_lights,
-    int depth)
+    int depth,Task *tasks)
 {
   Color pixelcolor (0.0f);
-  Task tasks [MAX_DEPTH];
-
-  Task t0;
-  t0.ray = first_ray;
-  t0.intensity = 1.0;
-  tasks [0] = t0;
-
   int tasks_count = 1;
 
   //I implemented an iteractive version of raytracing, once
@@ -190,7 +192,7 @@ Color compute_pixelcolor (Ray first_ray,
         Vector3D light_direction = (d_lights[i].position () - intersection_point);
 
         float light_lenght = light_direction.normalize ();
-        const Ray shadow_ray(intersection_point + normal * bias, light_direction,
+        const Ray shadow_ray (intersection_point + normal * bias, light_direction,
             light_lenght);
         near = INFINITY;
 
@@ -231,7 +233,8 @@ Color compute_pixelcolor (Ray first_ray,
         //generated this ray
         new_task.intensity = intersection_reflection * current_task.intensity;
 
-        Vector3D refl_dir = ray.direction () - normal * 2 * ray.direction ().dot (normal);
+        Vector3D refl_dir = ray.direction ()
+          - normal * 2 * ray.direction ().dot (normal);
         refl_dir.normalize ();
 
         new_task.ray = Ray (intersection_point + normal * bias, refl_dir);
@@ -242,12 +245,27 @@ Color compute_pixelcolor (Ray first_ray,
     }
     
     color = color * current_task.intensity;
-    pixelcolor = pixelcolor + color;
+    pixelcolor += color;
 
   } while (depth <= MAX_DEPTH);
 
   pixelcolor.clamp();
   return pixelcolor;
+}
+
+
+__global__ 
+void init_stuff(unsigned int seed,curandState *state) {
+ int outerOffset = (blockIdx.x * gridDim.y + blockIdx.y) 
+    * (blockDim.x * blockDim.y);
+  int innerOffset = threadIdx.x * blockDim.y + threadIdx.y;
+  int final_offset = outerOffset + innerOffset;
+//  curand_init(1337, idx, 0, &state[idx]);
+ curand_init(seed, /* the seed can be the same for each core, here we pass the time in from the CPU */
+              final_offset, /* the sequence number should be different for each core (unless you want all
+                             cores to get the same sequence of numbers for some reason - use thread id! */
+              0, /* the offset is how much extra we advance in the sequence for each call, can be 0 */
+              &state[final_offset]);
 }
 
   __global__ 
@@ -256,71 +274,50 @@ void k_trace (Image *d_image,
     Sphere *d_spheres, int num_spheres,
     Light *d_lights, int num_lights, 
     float aspect_ratio, float tanFov,
-    int width, int height, curandState* state)
+    int width, int height,curandState *state)
 {
-    extern __shared__ QueueSlot slots[];
-    __shared__ int queueParam[4];
-    __shared__ Queue queue;
+  int outerOffset = (blockIdx.x * gridDim.y + blockIdx.y) 
+    * (blockDim.x * blockDim.y);
+  int innerOffset = threadIdx.x * blockDim.y + threadIdx.y;
+  int final_offset = outerOffset + innerOffset;
 
-    if(threadIdx.x == 0)
+  if (final_offset < width * height)
+  {
+    Color pixelcolor (0.0f);
+    int y = final_offset / width;
+    int x = final_offset % width;
+    Task tasks [MAX_DEPTH];
+    for(int i=0;i<100;i++)
     {
-        queueParam[CAPACITY] = 10;
-        queueParam[REARIDX] = 0;
-        queueParam[FRONTIDX] = 0;
-        queueParam[NUMWAITINGTASKS] = 0;
-        
-        queue.set(slots, queueParam);
+      float m = curand_uniform(&state[final_offset]);
+      float n = curand_uniform(&state[final_offset]);
+      m = m-0.5;
+      n = n-0.5;
+      //printf ("random numbers:  %f \t %f \n",m,n);
+      float yu = (1 - 2 * ((y + 0.5+n) * 1 / (height))) * tanFov;
+      float xu = (2 * ((x + 0.5+m) * 1 / float (width)) - 1) * tanFov * aspect_ratio;
+      Point origin (0.0f, 5.0f, 20.0f);
+      // if((final_offset==0)||(final_offset==1))
+      // {
+      // printf ("random numbers:  %f \t %f \n",xu,yu);
+      // }
+      Ray ray (origin, Vector3D (xu, yu, -1));
+      
+      Task t0;
+      t0.ray = ray;
+      t0.intensity = 1.0;
+      tasks [0] = t0;
+      pixelcolor += compute_pixelcolor(ray, d_planes, num_planes,
+        d_spheres, num_spheres, d_lights, num_lights, 0,tasks);
+      // if((final_offset==0)||(final_offset==1))
+      // {
+      // printf ("color:  %f \t %f \t %f \n",pixelcolor._r,pixelcolor._g,pixelcolor._b);
+      // }
     }
-    __syncthreads();
-
-    int outerOffset = (blockIdx.x * gridDim.y + blockIdx.y) 
-      * (blockDim.x * blockDim.y);
-    int innerOffset = threadIdx.x * blockDim.y + threadIdx.y;
-    int final_offset = outerOffset + innerOffset;
-
-    if (final_offset < width * height)
-    {
-        int y = final_offset / width;
-        int x = final_offset % width;
-        Color pixelColor(0.0f);
-        Point origin (0.0f, 5.0f, 20.0f);
-        
-        Ray ray;
-        ray.setOrigin(origin);
-
-        for(int i = 0; i < 100; i++)
-        {
-          float m = curand_uniform(&state[final_offset]) - 0.5;
-          float n = curand_uniform(&state[final_offset]) - 0.5;
-
-          float yu = (1 - 2 * ((y + 0.5 + m) * 1 / float(height))) * tanFov;
-          float xu = (2 * ((x + 0.5 + n) * 1 / float(width)) - 1) * tanFov * aspect_ratio;
-
-          ray.setDirection(Vector3D(xu, yu, -1));
-
-          pixelColor = pixelColor + compute_pixelcolor(ray, d_planes, num_planes,
-              d_spheres, num_spheres, d_lights, num_lights, 0);
-        }
-        
-        pixelColor = pixelColor / 100.0f;
-        d_image[final_offset] = pixelColor;
-
-        if(final_offset == 0)
-        {
-            printf("(DEVICE) d_image color: (%f, %f, %f)\n", d_image[0].r(), d_image[0].g(), d_image[0].b());
-        }
-    }
-}
-
-__global__ 
-void init_stuff(unsigned int seed, curandState* state) {
- int idx = blockIdx.x * blockDim.x + threadIdx.x;
-//  curand_init(1337, idx, 0, &state[idx]);
- curand_init(seed, /* the seed can be the same for each core, here we pass the time in from the CPU */
-              idx, /* the sequence number should be different for each core (unless you want all
-                             cores to get the same sequence of numbers for some reason - use thread id! */
-              0, /* the offset is how much extra we advance in the sequence for each call, can be 0 */
-              &state[idx]);
+    pixelcolor/=float(100.0);
+    d_image[final_offset] = pixelcolor; 
+    
+  }
 }
 
 bool c_initScene (Sphere **spheres, int *num_spheres, 

@@ -12,6 +12,9 @@
 #include <stdio.h>
 #include <string>
 #include <sys/time.h>
+#include <unistd.h>
+#include <curand.h>
+#include <curand_kernel.h>
 
 #define checkCudaError(e) { checkCudaErrorImpl(e, __FILE__, __LINE__); }
 
@@ -49,12 +52,14 @@ int main (int argc, char** argv)
 	std::string filename = "out.ppm";
 
   Image* d_image;
-  num_bytes = (width*height)*sizeof(Color);
+  num_bytes = (width * height) * sizeof(Color);
   checkCudaError(cudaMallocManaged(&d_image, num_bytes));
   memset(d_image, 0, num_bytes);
 
-  dim3 threadsPerBlock(16, 16);
+  dim3 threadsPerBlock (16, 16);
   dim3 numBlocks;
+
+	
 
   gettimeofday (&t_start, NULL);
 
@@ -69,10 +74,6 @@ int main (int argc, char** argv)
 
     numBlocks = dim3 (width/threadsPerBlock.x + 1, height/threadsPerBlock.y + 1);
 
-    curandState *d_state;
-    cudaMalloc(&d_state, width*height);
-    init_stuff<<<numBlocks, threadsPerBlock>>>(time(0), d_state);
-
     float tanFov = tan (fov * 0.5 * M_PI / 180.0f);
     float aspect_ratio = float (width) / float (height);
 
@@ -83,10 +84,15 @@ int main (int argc, char** argv)
 
     printf ("Blocks: %d x %d\n", numBlocks.x, numBlocks.y);
 
-    k_trace<<<numBlocks, threadsPerBlock, sizeof(QueueSlot)>>>(d_image, d_planes, num_planes, d_spheres, num_spheres, d_lights, 
-       num_lights, aspect_ratio, tanFov, width, height, d_state);
+    curandState *d_state;
+    cudaMalloc(&d_state, width*height);
+    init_stuff<<<numBlocks, threadsPerBlock>>>(time(0),d_state);
+
+    k_trace <<<numBlocks, threadsPerBlock>>> 
+      (d_image, d_planes, num_planes, d_spheres, num_spheres, d_lights, 
+       num_lights, aspect_ratio, tanFov, width, height,d_state);
     cudaDeviceSynchronize();
-    cudaCheckErrors("Calling kernel k_test");
+    cudaCheckErrors ("Calling kernel k_test");
 
     gettimeofday (&t_end, NULL);
 
@@ -97,13 +103,14 @@ int main (int argc, char** argv)
     printf ("\nFinished!\n");
     printf ("Rendering time: %.3f s\n", elapsed_time/1000.0);
     
-    printf("(HOST) d_image color: (%f, %f, %f)\n", d_image[0].r(), d_image[0].g(), d_image[0].b());
+    printf("(HOST) d_image color: (%f, %f, %f)\n", d_image[1].r(), d_image[1].g(), d_image[1].b());
     //cudaMemcpy (h_image, d_image, num_bytes, cudaMemcpyDeviceToHost);
     writePPMFile (d_image, "cuda.ppm", width, height);
   }
   else
     printf ("ERROR. Exiting...\n");
 
+  // delete h_image;
   checkCudaError(cudaFree(d_image));
   cudaFree (d_planes);
   cudaFree (d_spheres);
