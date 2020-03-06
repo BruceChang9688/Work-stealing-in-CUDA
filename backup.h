@@ -248,140 +248,122 @@ Color compute_pixelcolor (Task *tasks,
   return pixelcolor;
 }
 
+__device__ Task createTask(curandState *state, int width, int height, float tanFov, float aspect_ratio, 
+Point origin, int x, int y, int globalThreadIdx, Task task)
+{
+  float m = curand_uniform(&state[globalThreadIdx]) - 0.5;
+  float n = curand_uniform(&state[globalThreadIdx]) - 0.5;
+
+  float yu = (1 - 2 * ((y + 0.5 + n) * 1 / float(height))) * tanFov;
+  float xu = (2 * ((x + 0.5 + m) * 1 / float(width)) - 1) * tanFov * aspect_ratio;
+  
+  Ray ray(origin, Vector3D(xu, yu, -1));
+  
+  task.ray = ray;
+  task.intensity = 1.0;
+
+  return task;
+}
+
   __global__ 
 void k_trace (Image *d_image, 
     Plane *d_planes, int num_planes,
     Sphere *d_spheres, int num_spheres,
     Light *d_lights, int num_lights, 
     float aspect_ratio, float tanFov,
-    int width, int height, float *state, 
+    int width, int height, curandState *state, 
     int numRay, float portion, int capacity)
 {
-  extern __shared__ QueueSlot slots[];
-  __shared__ int queueParam[4];
-  __shared__ Queue queue;
+  int outerOffset = (blockIdx.x*gridDim.y + blockIdx.y)*(blockDim.x*blockDim.y);
+  int innerOffset = threadIdx.x*blockDim.y + threadIdx.y;
+  int globalThreadIdx = outerOffset + innerOffset;
 
-  if(threadIdx.x == 0 && threadIdx.y == 0)
+  if (globalThreadIdx < width * height)
   {
-      queueParam[CAPACITY] = capacity;
-      queueParam[REARIDX] = 0;
-      queueParam[FRONTIDX] = 0;
-      queueParam[NUMWAITINGTASKS] = 0;
-      
-      queue.set(slots, queueParam);
-  }
-  __syncthreads();
+    //
+    // Allocate the queue in the shared memory
+    //
+    extern __shared__ QueueSlot slots[];
+    __shared__ int queueParam[4];
+    __shared__ Queue queue;
 
-  int outerOffset = (blockIdx.x * gridDim.y + blockIdx.y) 
-    * (blockDim.x * blockDim.y);
-  int innerOffset = threadIdx.x * blockDim.y + threadIdx.y;
-  int final_offset = outerOffset + innerOffset;
-
-  if (final_offset < width * height)
-  {
-    int y = final_offset / width;
-    int x = final_offset % width;
-    Color pixelcolor(0.0f);
-    Point origin(0.0f, 5.0f, 20.0f);
-
-    QueueSlot slot;
-    Task tasks[1];
-    // Task t;
-
-    int numSharedTasks = portion*numRay;
-    float m, n, yu, xu;
-
-    for(int i = 0; i < numSharedTasks; i++)
+    if(threadIdx.x == 0 && threadIdx.y == 0)
     {
-      m = state[i] - 0.5;
-      n = state[i] - 0.5;
-
-      yu = (1 - 2 * ((y + 0.5 + n) * 1 / float(height))) * tanFov;
-      xu = (2 * ((x + 0.5 + m) * 1 / float(width)) - 1) * tanFov * aspect_ratio;
-
-      Ray ray(origin, Vector3D(xu, yu, -1));
-      
-      tasks[0].ray = ray;
-      tasks[0].intensity = 1.0;
-
-      slot.task = tasks[0];
-      slot.pixelIndex = final_offset;
-
-      if(queue.enqueue(slot) == QueueStatus::QUEUEISFULL)
-      {
-        printf("Global ThreadIdx: %d, queue is full.\n", final_offset);
-      } 
+        queueParam[CAPACITY] = capacity;
+        queueParam[REARIDX] = 0;
+        queueParam[FRONTIDX] = 0;
+        queueParam[NUMWAITINGTASKS] = 0;
+        
+        queue.set(slots, queueParam);
+        //queue = Queue(slots, queueParam);
     }
     __syncthreads();
 
-    if(final_offset == 0)
+    //
+    // For each thread:
+    //
+
+    int y = globalThreadIdx / width;
+    int x = globalThreadIdx % width;
+    Color pixelcolor(0.0f);
+    Point origin(0.0f, 5.0f, 20.0f);
+
+    int numSharedRay = numRay*portion;
+    Task tasks[1];
+    Task task;
+    QueueSlot slot;
+
+    // assign tasks to shared memory
+    for(int i = 0; i < numSharedRay; i++)
     {
-      if(queue.isFull()) { printf("Queue is full.\n"); }
-      else { printf("Queue is NOT full.\n"); }
+      task = createTask(state, height, height, tanFov, aspect_ratio, origin, x, y, globalThreadIdx, task);
+      slot.pixelIndex = globalThreadIdx;
+      slot.task = task;
+
+      queue.enqueue(slot);
     }
 
-    for(int i = numSharedTasks; i < numRay; i++)
+    // do its own tasks first
+    for(int i = numSharedRay; i < numRay; i++)
     {
-      m = state[i] - 0.5;
-      n = state[i] - 0.5;
-
-      yu = (1 - 2 * ((y + 0.5 + n) * 1 / float(height))) * tanFov;
-      xu = (2 * ((x + 0.5 + m) * 1 / float(width)) - 1) * tanFov * aspect_ratio;
-      
-      Ray ray(origin, Vector3D(xu, yu, -1));
-      
-      tasks[0].ray = ray;
-      tasks[0].intensity = 1.0;
+      task = createTask(state, height, height, tanFov, aspect_ratio, origin, x, y, globalThreadIdx, task);
+      tasks[0] = task;
       pixelcolor += compute_pixelcolor(tasks, d_planes, num_planes,
         d_spheres, num_spheres, d_lights, num_lights, 0);
     }
-
     pixelcolor /= float(numRay);
-    d_image[final_offset] = pixelcolor; 
+    d_image[globalThreadIdx] = pixelcolor; 
 
-    // stealing tasks from the queue if any
+    // looking for extra tasks in the queue if any
+    int pixelIndex = 0;
     while(queue.dequeue(slot) == QueueStatus::QUEUEISWORKING)
     {
-      // if(final_offset == 1)
-      // {
-      //   Vector3D direction = slot.task.ray.direction();
-      //   printf("slot.pixelIndex: %d\n", slot.pixelIndex);
-      //   printf("direction: (%f, %f, %f)\n", direction.x(), direction.y(), direction.z());
-      // }
-
-      tasks[0] = slot.task;
+      pixelcolor.set(0.0f);
+      task = slot.task;
+      tasks[0] = task;
+      pixelIndex = slot.pixelIndex;
 
       pixelcolor = compute_pixelcolor(tasks, d_planes, num_planes,
         d_spheres, num_spheres, d_lights, num_lights, 0);
 
       pixelcolor /= float(numRay);
-      d_image[slot.pixelIndex] += pixelcolor; 
+      d_image[pixelIndex] += pixelcolor; 
     }
-  }
-  __syncthreads();
-
-  if(final_offset == 0)
-  {
-    if(queue.isEmpty()) { printf("All tasks are finished.\n"); }
-    else { printf("All tasks are NOT finished.\n"); }
   }
 }
 
 __global__ 
-void init_stuff(unsigned int seed, float *state) {
-
-  curandState result;
-
-  curand_init(
-      seed, /* the seed can be the same for each core, here we pass the time in from the CPU */
-      threadIdx.x, /* the sequence number should be different for each core (unless you want all
-                      cores to get the same sequence of numbers for some reason - use thread id! */
-      0, /* the offset is how much extra we advance in the sequence for each call, can be 0 */
-      &result
-  );
-
-  //  curand_init(1337, idx, 0, &state[idx]);
-  state[threadIdx.x] = curand_uniform(&result);
+void init_stuff(unsigned int seed, curandState *state) {
+ int outerOffset = (blockIdx.x * gridDim.y + blockIdx.y) 
+    * (blockDim.x * blockDim.y);
+  int innerOffset = threadIdx.x * blockDim.y + threadIdx.y;
+  int globalThreadIdx = outerOffset + innerOffset;
+//  curand_init(1337, idx, 0, &state[idx]);
+ curand_init(seed, /* the seed can be the same for each core, here we pass the time in from the CPU */
+             globalThreadIdx, /* the sequence number should be different for each core (unless you want all
+                             cores to get the same sequence of numbers for some reason - use thread id! */
+             0, /* the offset is how much extra we advance in the sequence for each call, can be 0 */
+             &state[globalThreadIdx]);
 }
 
 bool c_initScene (Sphere **spheres, int *num_spheres, 

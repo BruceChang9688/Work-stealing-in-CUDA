@@ -13,6 +13,7 @@
 
 const float kRayTMin = 0.00001f;
 const float far = 60.0f;
+const bool normalize = true;
 
 class Ray
 {
@@ -29,10 +30,10 @@ public:
 	{
 	}
 
-	__device__ Ray (const Point& origin, const Vector3D& direction, float tMax = far)
+	__device__ Ray (const Point& origin, const Vector3D& direction, bool normal = normalize, float tMax = far)
 			: _origin (origin), _direction (direction), _farPlane (tMax)
 	{
-		_direction.normalize();
+		if(normal) { _direction.normalize(); }
 	}
 
 	__device__ Ray& operator = (const Ray& r)

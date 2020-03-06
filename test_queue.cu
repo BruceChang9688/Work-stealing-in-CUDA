@@ -28,7 +28,11 @@ __global__ void test_queue_in_shared_memory(int capacity)
     int globalThreadId = blockDim.x*blockIdx.x + threadIdx.x;
     
     Task task;
-    task.ray = Ray(Point(globalThreadId, globalThreadId, globalThreadId), Vector3D(1, 1, 1));
+    task.ray = Ray(
+        Point(globalThreadId, globalThreadId, globalThreadId),
+        Vector3D(globalThreadId, globalThreadId, globalThreadId),
+        false
+    );
 
     QueueSlot slot;
     slot.pixelIndex = threadIdx.x;
@@ -45,7 +49,9 @@ __global__ void test_queue_in_shared_memory(int capacity)
     {
         QueueSlot slot_;
         queue.dequeue(slot_);
-        printf("Global threadId: %d, slot.pixelIndex: %d\n", globalThreadId, slot.pixelIndex);
+        Vector3D direction = slot_.task.ray.direction();
+        printf("Global threadId: %d, slot.pixelIndex: %d, ray.direction: (%f, %f, %f)\n",
+         globalThreadId, slot.pixelIndex, direction.x(), direction.y(), direction.z());
     }
 }
 

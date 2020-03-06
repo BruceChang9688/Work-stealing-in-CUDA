@@ -38,6 +38,20 @@ public:
 		_b = fmaxf (min, fminf (max, _b));
 	}
 
+	inline void __device__ set (float value)
+	{
+		_r = value;
+		_g = value;
+		_b = value;
+	}
+
+	inline void __device__ set (float r, float g, float b)
+	{
+		_r = r;
+		_g = g;
+		_b = b;
+	}
+
 	inline __host__ __device__ float r () const
 	{
 		return _r;
