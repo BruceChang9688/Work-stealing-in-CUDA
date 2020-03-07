@@ -1,3 +1,4 @@
+cd ..
 make clean
 mkdir build
 make build/RayTracing_cuda

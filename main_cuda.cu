@@ -37,44 +37,50 @@ int main (int argc, char** argv)
 
 	int width = atoi (argv[1]);;
 	int height = atoi (argv[2]);;
-
+  float fov = 60.0;
   
-	float fov = 60.0;
   if (argc >= 4)
   {
     fov = atof (argv[3]);
   }
 
-  int num_bytes, num_spheres, num_planes, num_lights;
   timeval t_start, t_end;
   double elapsed_time;
+  int num_bytes, num_spheres, num_planes, num_lights;
   Sphere *d_spheres;
   Plane *d_planes;
   Light *d_lights;
-	std::string filename = "out.ppm";
 
+  Color blackColor(0.0f);
   Image* d_image;
+  Image* record_image;
   num_bytes = (width * height) * sizeof(Color);
   checkCudaError(cudaMallocManaged(&d_image, num_bytes));
-  memset(d_image, 0, num_bytes);
+  checkCudaError(cudaMallocManaged(&record_image, num_bytes));
+  // memset(d_image, blackColor, num_bytes);
+
+  int* record;
+  checkCudaError(cudaMallocManaged(&record, width*height*sizeof(int)));
+
+  for(int k = 0; k < width*height; k++)
+  {
+    d_image[k] = blackColor;
+    record_image[k] = blackColor;
+    record[k] = 0;
+  }
 
   dim3 threadsPerBlock (16, 16);
   dim3 numBlocks;
 
-	
-
   gettimeofday (&t_start, NULL);
-
-  // h_image = new Image[width * height];
 
   if (c_initScene (&d_spheres, &num_spheres, 
         &d_planes, &num_planes,
         &d_lights, &num_lights))
   {
-    // //Allocation of memory for the scene on device
-    // cudaMalloc (&d_image, num_bytes);
-
+    // Allocation of memory for the scene on device
     numBlocks = dim3 (width/threadsPerBlock.x + 1, height/threadsPerBlock.y + 1);
+    printf ("Blocks: %d x %d\n", numBlocks.x, numBlocks.y);
 
     float tanFov = tan (fov * 0.5 * M_PI / 180.0f);
     float aspect_ratio = float (width) / float (height);
@@ -82,15 +88,11 @@ int main (int argc, char** argv)
     printf ("Rendering scene:\n");
     printf ("Width: %d \nHeight: %d\nFov: %.2f\n", width, height, fov);
 
-    numBlocks = dim3 (width/threadsPerBlock.x + 1, height/threadsPerBlock.y + 1);
-
-    printf ("Blocks: %d x %d\n", numBlocks.x, numBlocks.y);
-  
     float portion = 0.1f;    // the portion of tasks will be put into the shared memory
     int numRay = 40;    // # of rays for antialiasing
     int capacity = portion*numRay*threadsPerBlock.x*threadsPerBlock.y;
     printf("The size of allocated shared memory (Bytes): %lu\n", capacity*sizeof(QueueSlot));
-    printf("The size of QueueSlot (Bytes): %lu\n", sizeof(QueueSlot));
+    printf("The number of stolen rays : %f\n", numRay*portion);
 
     float *d_state;
     cudaMalloc(&d_state, numRay);
@@ -101,12 +103,21 @@ int main (int argc, char** argv)
     k_trace <<<numBlocks, threadsPerBlock, capacity*sizeof(QueueSlot)>>>
     (d_image, d_planes, num_planes, d_spheres, num_spheres, d_lights, 
      num_lights, aspect_ratio, tanFov, width, height, d_state,
-     numRay, portion, capacity);
+     numRay, portion, capacity, record);
     cudaDeviceSynchronize();
     cudaCheckErrors ("Calling kernel k_test");
+    
+    for(int u = 0; u < width*height; u++)
+    {
+      if(record[u] < 4)
+      {
+        //printf("pixelIndex: (%d, %d) only has been stolen %d rays\n", u%width, u/width, record[u]);
+        Color color_(1.0f/float(record[u]));
+        record_image[u] = color_;
+      }
+    }
 
     gettimeofday (&t_end, NULL);
-
     elapsed_time = (t_end.tv_sec - t_start.tv_sec) * 1000.0;
     elapsed_time += (t_end.tv_usec - t_start.tv_usec) / 1000.0;
 
@@ -114,18 +125,18 @@ int main (int argc, char** argv)
     printf ("\nFinished!\n");
     printf ("Rendering time: %.3f s\n", elapsed_time/1000.0);
     
-    printf("(HOST) d_image color: (%f, %f, %f)\n", d_image[1].r(), d_image[1].g(), d_image[1].b());
-    //cudaMemcpy (h_image, d_image, num_bytes, cudaMemcpyDeviceToHost);
-    writePPMFile (d_image, "cuda.ppm", width, height);
+    //printf("(HOST) d_image color: (%f, %f, %f)\n", d_image[1].r(), d_image[1].g(), d_image[1].b());
+    writePPMFile(d_image, "cuda.ppm", width, height);
+    writePPMFile(record_image, "record.ppm", width, height);
   }
   else
     printf ("ERROR. Exiting...\n");
 
   // delete h_image;
   checkCudaError(cudaFree(d_image));
-  cudaFree (d_planes);
-  cudaFree (d_spheres);
-  cudaFree (d_lights);
+  cudaFree(d_planes);
+  cudaFree(d_spheres);
+  cudaFree(d_lights);
   
 	return 0;
 }

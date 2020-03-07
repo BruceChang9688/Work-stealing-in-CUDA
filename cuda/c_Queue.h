@@ -71,6 +71,7 @@ public:
 
     __device__ inline bool isFull()
     {
+        //if(_param[NUMWAITINGTASKS] != 1024) { printf("Num of waiting tasks: %d\n", _param[NUMWAITINGTASKS]); }
         if (handleNumWaitingTasks(1) >= _param[CAPACITY])
         {
             atomicExch(&_param[NUMWAITINGTASKS], _param[CAPACITY]);
@@ -91,6 +92,7 @@ public:
 
     __device__ inline bool isEmpty()
     {
+        //if(_param[NUMWAITINGTASKS] != 0) { printf("Num of waiting tasks: %d\n", _param[NUMWAITINGTASKS]); }
         if (handleNumWaitingTasks(1) <= 0)
         {
             atomicExch(&_param[NUMWAITINGTASKS], 0);
@@ -99,7 +101,7 @@ public:
         else { return false; }
     }
 
-    __device__ QueueStatus enqueue(QueueSlot &data)
+    __device__ QueueStatus enqueue(QueueSlot data)
     {
         int currentNumWaitingTasks = handleNumWaitingTasks(1);
         //printf("Number of waiting tasks: %d. From global threadId: %d\n", currentNumWaitingTasks, threadIdx.x + blockIdx.x*blockDim.x);
@@ -111,7 +113,9 @@ public:
             int index = handleIndex(1);
 
             // store data in the queue
-            _slots[index] = data;
+            _slots[index].task.ray = data.task.ray;
+            _slots[index].task.intensity = data.task.intensity;
+            _slots[index].pixelIndex = data.pixelIndex;
 
             //printf("Store in queue[%d], local threadId: %d, global threadId: %d\n", index, queue[index], threadIdx.x + blockIdx.x*blockDim.x);
             status = QueueStatus::QUEUEISWORKING;
@@ -139,7 +143,9 @@ public:
             int index = handleIndex(-1);
             
             // get data from the queue
-            data = _slots[index];
+            data.task.ray = _slots[index].task.ray;
+            data.task.intensity = _slots[index].task.intensity;
+            data.pixelIndex = _slots[index].pixelIndex;
 
             //printf("Get from queue[%d], local threadId: %d, global threadId: %d\n", index, queue[index], threadIdx.x + blockIdx.x*blockDim.x);
             status = QueueStatus::QUEUEISWORKING; 
