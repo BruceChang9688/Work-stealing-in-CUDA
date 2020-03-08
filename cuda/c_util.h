@@ -300,7 +300,8 @@
  
      int numSharedTasks = portion*numRay;
      float m, n, yu, xu;
- 
+     Color pixelcolor0(0.0f);
+  
      for(int i = 0; i < numSharedTasks; i++)
      {
        Task tasks0[1];
@@ -314,35 +315,33 @@
        Ray ray0(origin, Vector3D(xu, yu, -1));
        
        tasks0[0].ray = ray0;
-       tasks0[0].intensity = 1.0;
+       tasks0[0].intensity = 1.0f;
  
        QueueSlot slot0;
        slot0.task.ray = tasks0[0].ray;
        slot0.task.intensity = tasks0[0].intensity;
        slot0.pixelIndex = final_offset;
  
+       pixelcolor0 += compute_pixelcolor(tasks0, d_planes, num_planes,
+         d_spheres, num_spheres, d_lights, num_lights, 0);
+
        QueueStatus status = queue.enqueue(slot0);
        if(status == QueueStatus::QUEUEISFULL)
        {
          printf("Global ThreadIdx: %d, queue is full.\n", final_offset);
        } 
+
+        if(blockIdx.x == 0 && blockIdx.y == 28)
+        {
+          if(slot0.pixelIndex == 365605)
+          {
+            printf("(Enqueue) BlockIdx: (%d, %d), pixelIndex: %d, ray intensity: %f\n", blockIdx.x, blockIdx.y, slot0.pixelIndex, slot0.task.intensity);
+          }
+        }
      }
      __syncthreads();
- 
-     if(threadIdx.x == 0 && threadIdx.y == 0)
-     {
-       if(queue.isFull()) 
-       { 
-         if(queue.rearIdx() != 1024, queue.frontIdx() != 0)
-         {
-          printf("(Enqueue, Full) BlockIdx: (%d, %d), rearIdx: %d, frontIdx: %d\n", blockIdx.x, blockIdx.y, queue.rearIdx(), queue.frontIdx());
-         }
-       }
-       else 
-       { 
-         printf("(Enqueue, NOT Full) BlockIdx: (%d, %d), rearIdx: %d, frontIdx: %d\n", blockIdx.x, blockIdx.y, queue.rearIdx(), queue.frontIdx());
-       }
-     }
+     pixelcolor0 /= float(numRay);
+     d_image[final_offset] = pixelcolor0; 
  
      Color pixelcolor1(0.0f);
      for(int j = numSharedTasks; j < numRay; j++)
@@ -364,49 +363,66 @@
      }
  
      pixelcolor1 /= float(numRay);
-     d_image[final_offset] = pixelcolor1; 
+     d_image[final_offset] += pixelcolor1; 
  
      // stealing tasks from the queue if any
-     Color pixelcolor2(0.0f);
-     while(1)
-     {
-       // if(final_offset == 1)
-       // {
-       //   Vector3D direction = slot.task.ray.direction();
-       //   printf("slot.pixelIndex: %d\n", slot.pixelIndex);
-       //   printf("direction: (%f, %f, %f)\n", direction.x(), direction.y(), direction.z());
-       // }
-       QueueSlot slot2;
-       Task tasks2[1];
-       QueueStatus status = queue.dequeue(slot2);
-       if(status != QueueStatus::QUEUEISWORKING) { break; }
-       tasks2[0].ray = slot2.task.ray;
-       tasks2[0].intensity = slot2.task.intensity;
+    while(1)
+    {
+      // if(final_offset == 1)
+      // {
+      //   Vector3D direction = slot.task.ray.direction();
+      //   printf("slot.pixelIndex: %d\n", slot.pixelIndex);
+      //   printf("direction: (%f, %f, %f)\n", direction.x(), direction.y(), direction.z());
+      // }
+      Color pixelcolor2(0.0f);
+      QueueSlot slot2;
+      Task tasks2[1];
+      QueueStatus status = queue.dequeue(slot2);
+      if(status != QueueStatus::QUEUEISWORKING) { break; }
+      tasks2[0].ray = slot2.task.ray;
+      tasks2[0].intensity = slot2.task.intensity;
+
+      pixelcolor2 = compute_pixelcolor(tasks2, d_planes, num_planes,
+        d_spheres, num_spheres, d_lights, num_lights, 0);
  
-       pixelcolor2 = compute_pixelcolor(tasks2, d_planes, num_planes,
-         d_spheres, num_spheres, d_lights, num_lights, 0);
- 
-       pixelcolor2 /= float(numRay);
-       d_image[slot2.pixelIndex] += pixelcolor2; 
-       record[slot2.pixelIndex] += 1;
+      if(blockIdx.x == 0 && blockIdx.y == 28)
+      {
+        if(slot2.pixelIndex == 365605)
+        {
+          printf("(Dequeue) BlockIdx: (%d, %d), pixelIndex: %d, ray intensity: %f\n", blockIdx.x, blockIdx.y, slot2.pixelIndex, slot2.task.intensity);
+        }
+      }
+      atomicAdd(&record[slot2.pixelIndex], 1);
+      pixelcolor2 /= float(numRay);
+
+      atomicAdd(&(d_image[slot2.pixelIndex].r_()), pixelcolor2.r_());
+      atomicAdd(&(d_image[slot2.pixelIndex].g_()), pixelcolor2.g_());
+      atomicAdd(&(d_image[slot2.pixelIndex].b_()), pixelcolor2.b_());
      }
    }
    __syncthreads();
  
-   if(threadIdx.x == 0 && threadIdx.y == 0)
-   {
-     if(queue.isEmpty()) 
-     { 
-       if(queue.rearIdx() != 1024 && queue.frontIdx() != 1024)
-       {
-        printf("(Dequeue, Empty) BlockIdx: (%d, %d), rearIdx: %d, frontIdx: %d, numWaitingTasks: %d\n", blockIdx.x, blockIdx.y, queue.rearIdx(), queue.frontIdx(), queue.length());
-       }
-     }
-     else 
-     { 
-       printf("(Dequeue, NOT Empty) BlockIdx: (%d, %d), rearIdx: %d, frontIdx: %d, numWaitingTasks: %d\n", blockIdx.x, blockIdx.y, queue.rearIdx(), queue.frontIdx(), queue.length());
-     }
-   }
+  //  if(threadIdx.x == 0 && threadIdx.y == 0)
+  //  {
+  //    if(queue.isEmpty()) 
+  //    { 
+  //      if(queue.rearIdx() != 1024 && queue.frontIdx() != 1024)
+  //      {
+  //       printf("(Dequeue, Empty) BlockIdx: (%d, %d), rearIdx: %d, frontIdx: %d, numWaitingTasks: %d\n", blockIdx.x, blockIdx.y, queue.rearIdx(), queue.frontIdx(), queue.length());
+  //      }
+  //    }
+  //    else 
+  //    { 
+  //      printf("(Dequeue, NOT Empty) BlockIdx: (%d, %d), rearIdx: %d, frontIdx: %d, numWaitingTasks: %d\n", blockIdx.x, blockIdx.y, queue.rearIdx(), queue.frontIdx(), queue.length());
+  //    }
+  //  }
+   if(blockIdx.x == 0 && blockIdx.y == 28) //(451, 465)
+      {
+        if(threadIdx.x == 0 && threadIdx.y == 0)
+        {
+          printf("record[365605]: %d\n", record[365605]);
+        }
+      }
  }
  
  __global__ 

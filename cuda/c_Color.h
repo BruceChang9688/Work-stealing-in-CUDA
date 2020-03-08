@@ -65,6 +65,19 @@ public:
 		return _b;
 	}
 
+	inline __host__ __device__ float& r_()
+	{
+		return _r;
+	}
+	inline __host__ __device__ float& g_()
+	{
+		return _g;
+	}
+	inline __host__ __device__ float& b_()
+	{
+		return _b;
+	}
+
 	inline __host__ __device__ Color& operator = (const Color& c)
 	{
 		_r = c.r ();

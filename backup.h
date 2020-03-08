@@ -255,33 +255,43 @@
      Light *d_lights, int num_lights, 
      float aspect_ratio, float tanFov,
      int width, int height, float *state, 
-     int numRay, float portion, int capacity)
+     int numRay, float portion, int capacity, int* record)
  {
    extern __shared__ QueueSlot slots[];
    __shared__ int queueParam[4];
    __shared__ Queue queue;
- 
+
    if(threadIdx.x == 0 && threadIdx.y == 0)
    {
-       queueParam[CAPACITY] = capacity;
-       queueParam[REARIDX] = 0;
-       queueParam[FRONTIDX] = 0;
-       queueParam[NUMWAITINGTASKS] = 0;
+      queueParam[CAPACITY] = capacity;
+      queueParam[REARIDX] = 0;
+      queueParam[FRONTIDX] = 0;
+      queueParam[NUMWAITINGTASKS] = 0;
        
-       queue.set(slots, queueParam);
+      queue.set(slots, queueParam);
    }
    __syncthreads();
  
-   int outerOffset = (blockIdx.x * gridDim.y + blockIdx.y) 
-     * (blockDim.x * blockDim.y);
-   int innerOffset = threadIdx.x * blockDim.y + threadIdx.y;
-   int final_offset = outerOffset + innerOffset;
- 
-   if (final_offset < width * height)
+  //  int outerOffset = (blockIdx.x * gridDim.y + blockIdx.y) 
+  //    * (blockDim.x * blockDim.y);
+  //  int innerOffset = threadIdx.x * blockDim.y + threadIdx.y;
+  //  int final_offset = outerOffset + innerOffset;
+  int by = blockIdx.y;
+  int bx = blockIdx.x;
+  int ty = threadIdx.y;
+  int tx = threadIdx.x;
+  
+  int gRow = by * 16 + ty;
+  int gCol = bx * 16 + tx;
+
+  int subIndex = ty * 16 + tx;
+  int final_offset = gRow * width + gCol;
+  
+   int y = final_offset / width;
+   int x = final_offset % width;
+
+   if (x < width && y < height)
    {
-     int y = final_offset / width;
-     int x = final_offset % width;
-     Color pixelcolor(0.0f);
      Point origin(0.0f, 5.0f, 20.0f);
  
      // QueueSlot slot;
@@ -293,7 +303,7 @@
  
      for(int i = 0; i < numSharedTasks; i++)
      {
-       Task tasks[1];
+       Task tasks0[1];
  
        m = state[i] - 0.5;
        n = state[i] - 0.5;
@@ -301,17 +311,17 @@
        yu = (1 - 2 * ((y + 0.5 + n) * 1 / float(height))) * tanFov;
        xu = (2 * ((x + 0.5 + m) * 1 / float(width)) - 1) * tanFov * aspect_ratio;
  
-       Ray ray(origin, Vector3D(xu, yu, -1));
+       Ray ray0(origin, Vector3D(xu, yu, -1));
        
-       tasks[0].ray = ray;
-       tasks[0].intensity = 1.0;
+       tasks0[0].ray = ray0;
+       tasks0[0].intensity = 1.0;
  
-       QueueSlot slot;
-       slot.task.ray = tasks[0].ray;
-       slot.task.intensity = tasks[0].intensity;
-       slot.pixelIndex = final_offset;
+       QueueSlot slot0;
+       slot0.task.ray = tasks0[0].ray;
+       slot0.task.intensity = tasks0[0].intensity;
+       slot0.pixelIndex = final_offset;
  
-       QueueStatus status = queue.enqueue(slot);
+       QueueStatus status = queue.enqueue(slot0);
        if(status == QueueStatus::QUEUEISFULL)
        {
          printf("Global ThreadIdx: %d, queue is full.\n", final_offset);
@@ -319,15 +329,25 @@
      }
      __syncthreads();
  
-     if(final_offset == 0)
+     if(threadIdx.x == 0 && threadIdx.y == 0)
      {
-       if(queue.isFull()) { printf("Queue is full.\n"); }
-       else { printf("Queue is NOT full.\n"); }
+       if(queue.isFull()) 
+       { 
+         if(queue.rearIdx() != 1024, queue.frontIdx() != 0)
+         {
+          printf("(Enqueue, Full) BlockIdx: (%d, %d), rearIdx: %d, frontIdx: %d\n", blockIdx.x, blockIdx.y, queue.rearIdx(), queue.frontIdx());
+         }
+       }
+       else 
+       { 
+         printf("(Enqueue, NOT Full) BlockIdx: (%d, %d), rearIdx: %d, frontIdx: %d\n", blockIdx.x, blockIdx.y, queue.rearIdx(), queue.frontIdx());
+       }
      }
  
+     Color pixelcolor1(0.0f);
      for(int j = numSharedTasks; j < numRay; j++)
      {
-       Task tasks[1];
+       Task tasks1[1];
  
        m = state[j] - 0.5;
        n = state[j] - 0.5;
@@ -335,16 +355,16 @@
        yu = (1 - 2 * ((y + 0.5 + n) * 1 / float(height))) * tanFov;
        xu = (2 * ((x + 0.5 + m) * 1 / float(width)) - 1) * tanFov * aspect_ratio;
        
-       Ray ray(origin, Vector3D(xu, yu, -1));
+       Ray ray1(origin, Vector3D(xu, yu, -1));
        
-       tasks[0].ray = ray;
-       tasks[0].intensity = 1.0;
-       pixelcolor += compute_pixelcolor(tasks, d_planes, num_planes,
+       tasks1[0].ray = ray1;
+       tasks1[0].intensity = 1.0;
+       pixelcolor1 += compute_pixelcolor(tasks1, d_planes, num_planes,
          d_spheres, num_spheres, d_lights, num_lights, 0);
      }
  
-     pixelcolor /= float(numRay);
-     d_image[final_offset] = pixelcolor; 
+     pixelcolor1 /= float(numRay);
+     d_image[final_offset] = pixelcolor1; 
  
      // stealing tasks from the queue if any
      while(1)
@@ -355,27 +375,37 @@
        //   printf("slot.pixelIndex: %d\n", slot.pixelIndex);
        //   printf("direction: (%f, %f, %f)\n", direction.x(), direction.y(), direction.z());
        // }
-       QueueSlot slot;
-       Color pixelcolor(0.0f);
-       Task tasks[1];
-       QueueStatus status = queue.dequeue(slot);
+       Color pixelcolor2(0.0f);
+       QueueSlot slot2;
+       Task tasks2[1];
+       QueueStatus status = queue.dequeue(slot2);
        if(status != QueueStatus::QUEUEISWORKING) { break; }
-       tasks[0].ray = slot.task.ray;
-       tasks[0].intensity = slot.task.intensity;
+       tasks2[0].ray = slot2.task.ray;
+       tasks2[0].intensity = slot2.task.intensity;
  
-       pixelcolor = compute_pixelcolor(tasks, d_planes, num_planes,
+       pixelcolor2 = compute_pixelcolor(tasks2, d_planes, num_planes,
          d_spheres, num_spheres, d_lights, num_lights, 0);
  
-       pixelcolor /= float(numRay);
-       d_image[slot.pixelIndex] += pixelcolor; 
+       pixelcolor2 /= float(numRay);
+       d_image[slot2.pixelIndex] += pixelcolor2; 
+       record[slot2.pixelIndex] += 1;
      }
    }
    __syncthreads();
  
-   if(final_offset == 0)
+   if(threadIdx.x == 0 && threadIdx.y == 0)
    {
-     if(queue.isEmpty()) { printf("All tasks are finished.\n"); }
-     else { printf("All tasks are NOT finished.\n"); }
+     if(queue.isEmpty()) 
+     { 
+       if(queue.rearIdx() != 1024 && queue.frontIdx() != 1024)
+       {
+        printf("(Dequeue, Empty) BlockIdx: (%d, %d), rearIdx: %d, frontIdx: %d, numWaitingTasks: %d\n", blockIdx.x, blockIdx.y, queue.rearIdx(), queue.frontIdx(), queue.length());
+       }
+     }
+     else 
+     { 
+       printf("(Dequeue, NOT Empty) BlockIdx: (%d, %d), rearIdx: %d, frontIdx: %d, numWaitingTasks: %d\n", blockIdx.x, blockIdx.y, queue.rearIdx(), queue.frontIdx(), queue.length());
+     }
    }
  }
  
