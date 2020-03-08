@@ -27,6 +27,11 @@ inline void checkCudaErrorImpl(cudaError_t e, const char* file, int line, bool a
     }
 }
 
+
+#define WORKSTEALING true
+// #define WORKSTEALING false
+
+
 int main (int argc, char** argv)
 {
   if (argc < 3)
@@ -101,22 +106,32 @@ int main (int argc, char** argv)
     cudaDeviceSynchronize();
     cudaCheckErrors ("Calling kernel k_test");
 
+#if WORKSTEALING
     k_trace <<<numBlocks, threadsPerBlock, capacity*sizeof(QueueSlot)>>>
     (d_image, d_planes, num_planes, d_spheres, num_spheres, d_lights, 
-     num_lights, aspect_ratio, tanFov, width, height, d_state,
-     numRay, portion, capacity, record);
+    num_lights, aspect_ratio, tanFov, width, height, d_state,
+    numRay, portion, capacity, record);
+#else
+    k_trace_without_work_stealing <<<numBlocks, threadsPerBlock, capacity*sizeof(QueueSlot)>>>
+    (d_image, d_planes, num_planes, d_spheres, num_spheres, d_lights, 
+    num_lights, aspect_ratio, tanFov, width, height, d_state,
+    numRay, portion, capacity, record);
+#endif
+
     cudaDeviceSynchronize();
     cudaCheckErrors ("Calling kernel k_test");
     
-    for(int u = 0; u < width*height; u++)
-    {
-      if(record[u] < numRay)
-      {
-        //printf("pixelIndex: (%d, %d) only has been stolen %d rays\n", u%width, u/width, record[u]);
-        //Color color_(1.0f/float(record[u]));
-        record_image[u] = whiteColor;
-      }
-    }
+// #if WORKSTEALING
+//     for(int u = 0; u < width*height; u++)
+//     {
+//       if(record[u] < numRay)
+//       {
+//         printf("pixelIndex: (%d, %d) only has been stolen %d rays\n", u%width, u/width, record[u]);
+//         //Color color_(1.0f/float(record[u]));
+//         record_image[u] = whiteColor;
+//       }
+//     }
+// #endif
 
     gettimeofday (&t_end, NULL);
     elapsed_time = (t_end.tv_sec - t_start.tv_sec) * 1000.0;
@@ -126,9 +141,14 @@ int main (int argc, char** argv)
     printf ("\nFinished!\n");
     printf ("Rendering time: %.3f s\n", elapsed_time/1000.0);
     
-    //printf("(HOST) d_image color: (%f, %f, %f)\n", d_image[1].r(), d_image[1].g(), d_image[1].b());
+#if WORKSTEALING
     writePPMFile(d_image, "cuda.ppm", width, height);
     writePPMFile(record_image, "record.ppm", width, height);
+#else
+    writePPMFile(d_image, "cuda_without_work_stealing.ppm", width, height);
+    writePPMFile(record_image, "record_without_work_stealing.ppm", width, height);
+#endif
+
   }
   else
     printf ("ERROR. Exiting...\n");

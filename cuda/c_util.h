@@ -284,7 +284,6 @@
   int gRow = by * 16 + ty;
   int gCol = bx * 16 + tx;
 
-  int subIndex = ty * 16 + tx;
   int final_offset = gRow * width + gCol;
   
    int y = final_offset / width;
@@ -322,8 +321,8 @@
        slot0.task.intensity = tasks0[0].intensity;
        slot0.pixelIndex = final_offset;
  
-       pixelcolor0 += compute_pixelcolor(tasks0, d_planes, num_planes,
-         d_spheres, num_spheres, d_lights, num_lights, 0);
+      //  pixelcolor0 += compute_pixelcolor(tasks0, d_planes, num_planes,
+      //    d_spheres, num_spheres, d_lights, num_lights, 0);
 
        QueueStatus status = queue.enqueue(slot0);
        if(status == QueueStatus::QUEUEISFULL)
@@ -331,17 +330,17 @@
          printf("Global ThreadIdx: %d, queue is full.\n", final_offset);
        } 
 
-        if(blockIdx.x == 0 && blockIdx.y == 28)
-        {
-          if(slot0.pixelIndex == 365605)
-          {
-            printf("(Enqueue) BlockIdx: (%d, %d), pixelIndex: %d, ray intensity: %f\n", blockIdx.x, blockIdx.y, slot0.pixelIndex, slot0.task.intensity);
-          }
-        }
+        // if(blockIdx.x == 0 && blockIdx.y == 28)
+        // {
+        //   if(slot0.pixelIndex == 365605)
+        //   {
+        //     printf("(Enqueue) BlockIdx: (%d, %d), pixelIndex: %d, ray intensity: %f\n", blockIdx.x, blockIdx.y, slot0.pixelIndex, slot0.task.intensity);
+        //   }
+        // }
      }
      __syncthreads();
-     pixelcolor0 /= float(numRay);
-     d_image[final_offset] = pixelcolor0; 
+    //  pixelcolor0 /= float(numRay);
+    //  d_image[final_offset] = pixelcolor0; 
  
      Color pixelcolor1(0.0f);
      for(int j = numSharedTasks; j < numRay; j++)
@@ -360,6 +359,7 @@
        tasks1[0].intensity = 1.0;
        pixelcolor1 += compute_pixelcolor(tasks1, d_planes, num_planes,
          d_spheres, num_spheres, d_lights, num_lights, 0);
+       record[final_offset] += 1;
      }
  
      pixelcolor1 /= float(numRay);
@@ -385,13 +385,13 @@
       pixelcolor2 = compute_pixelcolor(tasks2, d_planes, num_planes,
         d_spheres, num_spheres, d_lights, num_lights, 0);
  
-      if(blockIdx.x == 0 && blockIdx.y == 28)
-      {
-        if(slot2.pixelIndex == 365605)
-        {
-          printf("(Dequeue) BlockIdx: (%d, %d), pixelIndex: %d, ray intensity: %f\n", blockIdx.x, blockIdx.y, slot2.pixelIndex, slot2.task.intensity);
-        }
-      }
+      // if(blockIdx.x == 0 && blockIdx.y == 28)
+      // {
+      //   if(slot2.pixelIndex == 365605)
+      //   {
+      //     printf("(Dequeue) BlockIdx: (%d, %d), pixelIndex: %d, ray intensity: %f\n", blockIdx.x, blockIdx.y, slot2.pixelIndex, slot2.task.intensity);
+      //   }
+      // }
       atomicAdd(&record[slot2.pixelIndex], 1);
       pixelcolor2 /= float(numRay);
 
@@ -416,15 +416,86 @@
   //      printf("(Dequeue, NOT Empty) BlockIdx: (%d, %d), rearIdx: %d, frontIdx: %d, numWaitingTasks: %d\n", blockIdx.x, blockIdx.y, queue.rearIdx(), queue.frontIdx(), queue.length());
   //    }
   //  }
-   if(blockIdx.x == 0 && blockIdx.y == 28) //(451, 465)
-      {
-        if(threadIdx.x == 0 && threadIdx.y == 0)
-        {
-          printf("record[365605]: %d\n", record[365605]);
-        }
-      }
+  //  if(blockIdx.x == 0 && blockIdx.y == 28) //(451, 465)
+  //     {
+  //       if(threadIdx.x == 0 && threadIdx.y == 0)
+  //       {
+  //         printf("record[365605]: %d\n", record[365605]);
+  //       }
+  //     }
  }
  
+   __global__ 
+ void k_trace_without_work_stealing (Image *d_image, 
+     Plane *d_planes, int num_planes,
+     Sphere *d_spheres, int num_spheres,
+     Light *d_lights, int num_lights, 
+     float aspect_ratio, float tanFov,
+     int width, int height, float *state, 
+     int numRay, float portion, int capacity, int* record)
+ {
+   extern __shared__ QueueSlot slots[];
+   __shared__ int queueParam[4];
+   __shared__ Queue queue;
+
+   if(threadIdx.x == 0 && threadIdx.y == 0)
+   {
+      queueParam[CAPACITY] = capacity;
+      queueParam[REARIDX] = 0;
+      queueParam[FRONTIDX] = 0;
+      queueParam[NUMWAITINGTASKS] = 0;
+       
+      queue.set(slots, queueParam);
+   }
+   __syncthreads();
+ 
+  //  int outerOffset = (blockIdx.x * gridDim.y + blockIdx.y) 
+  //    * (blockDim.x * blockDim.y);
+  //  int innerOffset = threadIdx.x * blockDim.y + threadIdx.y;
+  //  int final_offset = outerOffset + innerOffset;
+  int by = blockIdx.y;
+  int bx = blockIdx.x;
+  int ty = threadIdx.y;
+  int tx = threadIdx.x;
+  
+  int gRow = by * 16 + ty;
+  int gCol = bx * 16 + tx;
+
+  int final_offset = gRow * width + gCol;
+  
+   int y = final_offset / width;
+   int x = final_offset % width;
+
+   if (x < width && y < height)
+   {
+     Point origin(0.0f, 5.0f, 20.0f);
+ 
+     float m, n, yu, xu;
+     Color pixelcolor(0.0f);
+ 
+     for(int j = 0; j < numRay; j++)
+     {
+       Task tasks[1];
+ 
+       m = state[j] - 0.5;
+       n = state[j] - 0.5;
+ 
+       yu = (1 - 2 * ((y + 0.5 + n) * 1 / float(height))) * tanFov;
+       xu = (2 * ((x + 0.5 + m) * 1 / float(width)) - 1) * tanFov * aspect_ratio;
+       
+       Ray ray(origin, Vector3D(xu, yu, -1));
+       
+       tasks[0].ray = ray;
+       tasks[0].intensity = 1.0;
+       pixelcolor += compute_pixelcolor(tasks, d_planes, num_planes,
+         d_spheres, num_spheres, d_lights, num_lights, 0);
+     }
+ 
+     pixelcolor /= float(numRay);
+     d_image[final_offset] += pixelcolor; 
+   }
+ }
+
  __global__ 
  void init_stuff(unsigned int seed, float *state) {
  
