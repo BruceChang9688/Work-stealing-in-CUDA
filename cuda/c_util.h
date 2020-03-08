@@ -335,12 +335,12 @@
        { 
          if(queue.rearIdx() != 1024, queue.frontIdx() != 0)
          {
-          printf("(Enqueue, Full) BlockIdx.x: %d, BlockIdx.y: %d, rearIdx: %d, frontIdx: %d\n", blockIdx.x, blockIdx.y, queue.rearIdx(), queue.frontIdx());
+          printf("(Enqueue, Full) BlockIdx: (%d, %d), rearIdx: %d, frontIdx: %d\n", blockIdx.x, blockIdx.y, queue.rearIdx(), queue.frontIdx());
          }
        }
        else 
        { 
-         printf("(Enqueue, NOT Full) BlockIdx.x: %d, BlockIdx.y: %d, rearIdx: %d, frontIdx: %d\n", blockIdx.x, blockIdx.y, queue.rearIdx(), queue.frontIdx());
+         printf("(Enqueue, NOT Full) BlockIdx: (%d, %d), rearIdx: %d, frontIdx: %d\n", blockIdx.x, blockIdx.y, queue.rearIdx(), queue.frontIdx());
        }
      }
  
@@ -399,12 +399,12 @@
      { 
        if(queue.rearIdx() != 1024 && queue.frontIdx() != 1024)
        {
-        printf("(Dequeue, Empty) BlockIdx.x: %d, BlockIdx.y: %d, rearIdx: %d, frontIdx: %d, numWaitingTasks: %d\n", blockIdx.x, blockIdx.y, queue.rearIdx(), queue.frontIdx(), queue.length());
+        printf("(Dequeue, Empty) BlockIdx: (%d, %d), rearIdx: %d, frontIdx: %d, numWaitingTasks: %d\n", blockIdx.x, blockIdx.y, queue.rearIdx(), queue.frontIdx(), queue.length());
        }
      }
      else 
      { 
-       printf("(Dequeue, NOT Empty) BlockIdx.x: %d, BlockIdx.y: %d, rearIdx: %d, frontIdx: %d, numWaitingTasks: %d\n", blockIdx.x, blockIdx.y, queue.rearIdx(), queue.frontIdx(), queue.length());
+       printf("(Dequeue, NOT Empty) BlockIdx: (%d, %d), rearIdx: %d, frontIdx: %d, numWaitingTasks: %d\n", blockIdx.x, blockIdx.y, queue.rearIdx(), queue.frontIdx(), queue.length());
      }
    }
  }

@@ -79,7 +79,7 @@ int main (int argc, char** argv)
         &d_lights, &num_lights))
   {
     // Allocation of memory for the scene on device
-    numBlocks = dim3 (width/threadsPerBlock.x + 1, height/threadsPerBlock.y + 1);
+    numBlocks = dim3 ((int)ceil((float)width/threadsPerBlock.x), (int)ceil((float)height/threadsPerBlock.y));
     printf ("Blocks: %d x %d\n", numBlocks.x, numBlocks.y);
 
     float tanFov = tan (fov * 0.5 * M_PI / 180.0f);

@@ -55,7 +55,7 @@ __global__ void test_queue_in_shared_memory(int capacity)
     // slot0.pixelIndex = -1;
     // slot0.task = task0;
     slot.pixelIndex = -10;
-    //if(queue.enqueue(slot) == QueueStatus::QUEUEISFULL) { atomicAdd(&fullAlert[0], 1); }
+    if(queue.enqueue(slot) == QueueStatus::QUEUEISFULL) { atomicAdd(&fullAlert[0], 1); }
 
     // int* paramThread = queue.param();
     // printf("Global threadId: %d, rearIdx: %d, numWaitingTasks: %d\n", globalThreadId, paramThread[1], paramThread[3]);
@@ -68,7 +68,7 @@ __global__ void test_queue_in_shared_memory(int capacity)
         queue.dequeue(slot_);
         Vector3D direction = slot_.task.ray.direction();
         printf("Global threadId: %d, slot.pixelIndex: %d, ray.direction: (%f, %f, %f)\n",
-         globalThreadId, slot.pixelIndex, direction.x(), direction.y(), direction.z());
+         globalThreadId, slot_.pixelIndex, direction.x(), direction.y(), direction.z());
     }
     __syncthreads();
     if(threadIdx.x == 0)

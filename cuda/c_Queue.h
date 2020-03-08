@@ -113,10 +113,10 @@ public:
             int index = handleIndex(1);
 
             // store data in the queue
-            _slots[index].task.ray = data.task.ray;
-            _slots[index].task.intensity = data.task.intensity;
-            _slots[index].pixelIndex = data.pixelIndex;
-
+            // _slots[index].task.ray = data.task.ray;
+            // _slots[index].task.intensity = data.task.intensity;
+            // _slots[index].pixelIndex = data.pixelIndex;
+            _slots[index] = data;
             //printf("Store in queue[%d], local threadId: %d, global threadId: %d\n", index, queue[index], threadIdx.x + blockIdx.x*blockDim.x);
             status = QueueStatus::QUEUEISWORKING;
 
@@ -143,10 +143,10 @@ public:
             int index = handleIndex(-1);
             
             // get data from the queue
-            data.task.ray = _slots[index].task.ray;
-            data.task.intensity = _slots[index].task.intensity;
-            data.pixelIndex = _slots[index].pixelIndex;
-
+            // data.task.ray = _slots[index].task.ray;
+            // data.task.intensity = _slots[index].task.intensity;
+            // data.pixelIndex = _slots[index].pixelIndex;
+            data = _slots[index];
             //printf("Get from queue[%d], local threadId: %d, global threadId: %d\n", index, queue[index], threadIdx.x + blockIdx.x*blockDim.x);
             status = QueueStatus::QUEUEISWORKING; 
 
