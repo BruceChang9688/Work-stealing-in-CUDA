@@ -52,6 +52,7 @@ int main (int argc, char** argv)
   Light *d_lights;
 
   Color blackColor(0.0f);
+  Color whiteColor(1.0f);
   Image* d_image;
   Image* record_image;
   num_bytes = (width * height) * sizeof(Color);
@@ -109,11 +110,11 @@ int main (int argc, char** argv)
     
     for(int u = 0; u < width*height; u++)
     {
-      if(record[u] < 4)
+      if(record[u] < numRay)
       {
         //printf("pixelIndex: (%d, %d) only has been stolen %d rays\n", u%width, u/width, record[u]);
-        Color color_(1.0f/float(record[u]));
-        record_image[u] = color_;
+        //Color color_(1.0f/float(record[u]));
+        record_image[u] = whiteColor;
       }
     }
 
