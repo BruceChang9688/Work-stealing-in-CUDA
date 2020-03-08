@@ -92,8 +92,11 @@ public:
 
     __device__ inline bool isEmpty()
     {
-        //if(_param[NUMWAITINGTASKS] != 0) { printf("Num of waiting tasks: %d\n", _param[NUMWAITINGTASKS]); }
-        if (handleNumWaitingTasks(1) <= 0)
+
+        int x = handleNumWaitingTasks(1);
+    	int y = handleIndex(-1);
+    	//printf("is empty? num tasks %d\t %d\n",x,y);
+        if (x <= 0)
         {
             atomicExch(&_param[NUMWAITINGTASKS], 0);
             return true;
@@ -105,13 +108,12 @@ public:
     {
         int currentNumWaitingTasks = handleNumWaitingTasks(1);
         //printf("Number of waiting tasks: %d. From global threadId: %d\n", currentNumWaitingTasks, threadIdx.x + blockIdx.x*blockDim.x);
-
         QueueStatus status = QueueStatus::NONE;
 
         if (!isFull(currentNumWaitingTasks)) // if queue is not full
         {
             int index = handleIndex(1);
-
+            // printf("enqueue num tasks, test index %d\t %d\n",currentNumWaitingTasks, index);
             // store data in the queue
             _slots[index].task.ray = data.task.ray;
             _slots[index].task.intensity = data.task.intensity;
@@ -124,6 +126,7 @@ public:
         }
         else
         {
+            // printf("enqueue test quit num tasks %d\t %d\n",currentNumWaitingTasks);
             //printf("\nQueue is full. From global threadId %d. _rearIdx: %d. # of waiting tasks%d\n", threadIdx.x + blockIdx.x*blockDim.x, _rearIdx, _numWaitingTasks);
             status = QueueStatus::QUEUEISFULL;
 
@@ -135,13 +138,13 @@ public:
     {
         int currentNumWaitingTasks = handleNumWaitingTasks(-1);
         //printf("Number of waiting tasks: %d. From global threadId %d\n", currentNumWaitingTasks, threadIdx.x + blockIdx.x*blockDim.x);
-        
+        // printf("dequeue test num tasks %d\n",currentNumWaitingTasks);
         QueueStatus status = QueueStatus::NONE;
 
         if (!isEmpty(currentNumWaitingTasks)) // if queue have waiting tasks
         {
             int index = handleIndex(-1);
-            
+            // printf("dequeue num tasks, test index %d\t %d\n",currentNumWaitingTasks, index);
             // get data from the queue
             data.task.ray = _slots[index].task.ray;
             data.task.intensity = _slots[index].task.intensity;
@@ -156,7 +159,7 @@ public:
         {
             //printf("\nQueue is empty. From global threadId %d. _frontIdx: %d. # of Waiting Tasks: %d\n", threadIdx.x + blockIdx.x*blockDim.x, _frontIdx, _numWaitingTasks);
             status = QueueStatus::QUEUEISEMPTY;
-
+            // printf("dequeue test quit num tasks %d\n",currentNumWaitingTasks);
             return status;
         }
     }
@@ -165,7 +168,7 @@ private:
     QueueSlot* _slots;
     int* _param;
 
-    __device__ inline int handleNumWaitingTasks(int sign)
+    __device__ int handleNumWaitingTasks(int sign)
     {
         return atomicAdd(&_param[NUMWAITINGTASKS], sign);
     }

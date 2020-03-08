@@ -255,7 +255,7 @@
      Light *d_lights, int num_lights, 
      float aspect_ratio, float tanFov,
      int width, int height, float *state, 
-     int numRay, float portion, int capacity, int* record)
+     int numRay, float portion, int capacity)
  {
    extern __shared__ QueueSlot slots[];
    __shared__ int queueParam[4];
@@ -272,20 +272,20 @@
    }
    __syncthreads();
  
-  //  int outerOffset = (blockIdx.x * gridDim.y + blockIdx.y) 
-  //    * (blockDim.x * blockDim.y);
-  //  int innerOffset = threadIdx.x * blockDim.y + threadIdx.y;
-  //  int final_offset = outerOffset + innerOffset;
-  int by = blockIdx.y;
-  int bx = blockIdx.x;
-  int ty = threadIdx.y;
-  int tx = threadIdx.x;
+   int outerOffset = (blockIdx.x * gridDim.y + blockIdx.y) 
+     * (blockDim.x * blockDim.y);
+   int innerOffset = threadIdx.x * blockDim.y + threadIdx.y;
+   int final_offset = outerOffset + innerOffset;
+  // int by = blockIdx.y;
+  // int bx = blockIdx.x;
+  // int ty = threadIdx.y;
+  // int tx = threadIdx.x;
   
-  int gRow = by * 16 + ty;
-  int gCol = bx * 16 + tx;
+  // int gRow = by * 16 + ty;
+  // int gCol = bx * 16 + tx;
 
-  int subIndex = ty * 16 + tx;
-  int final_offset = gRow * width + gCol;
+  // int subIndex = ty * 16 + tx;
+  // int final_offset = gRow * width + gCol;
   
    int y = final_offset / width;
    int x = final_offset % width;
@@ -293,10 +293,6 @@
    if (x < width && y < height)
    {
      Point origin(0.0f, 5.0f, 20.0f);
- 
-     // QueueSlot slot;
-     // Task tasks[1];
-     // Task t;
  
      int numSharedTasks = portion*numRay;
      float m, n, yu, xu;
@@ -329,21 +325,6 @@
      }
      __syncthreads();
  
-     if(threadIdx.x == 0 && threadIdx.y == 0)
-     {
-       if(queue.isFull()) 
-       { 
-         if(queue.rearIdx() != 1024, queue.frontIdx() != 0)
-         {
-          printf("(Enqueue, Full) BlockIdx.x: %d, BlockIdx.y: %d, rearIdx: %d, frontIdx: %d\n", blockIdx.x, blockIdx.y, queue.rearIdx(), queue.frontIdx());
-         }
-       }
-       else 
-       { 
-         printf("(Enqueue, NOT Full) BlockIdx.x: %d, BlockIdx.y: %d, rearIdx: %d, frontIdx: %d\n", blockIdx.x, blockIdx.y, queue.rearIdx(), queue.frontIdx());
-       }
-     }
- 
      Color pixelcolor1(0.0f);
      for(int j = numSharedTasks; j < numRay; j++)
      {
@@ -364,22 +345,15 @@
      }
  
      pixelcolor1 /= float(numRay);
-     d_image[final_offset] = pixelcolor1; 
  
      // stealing tasks from the queue if any
      Color pixelcolor2(0.0f);
-     while(1)
+     QueueSlot slot2;
+     Task tasks2[1];
+     while(queue.dequeue(slot2) == QueueStatus::QUEUEISWORKING)
      {
-       // if(final_offset == 1)
-       // {
-       //   Vector3D direction = slot.task.ray.direction();
-       //   printf("slot.pixelIndex: %d\n", slot.pixelIndex);
-       //   printf("direction: (%f, %f, %f)\n", direction.x(), direction.y(), direction.z());
-       // }
-       QueueSlot slot2;
-       Task tasks2[1];
-       QueueStatus status = queue.dequeue(slot2);
-       if(status != QueueStatus::QUEUEISWORKING) { break; }
+      //  QueueStatus status = queue.dequeue(slot2);
+      //  if(status != QueueStatus::QUEUEISWORKING) { break; }
        tasks2[0].ray = slot2.task.ray;
        tasks2[0].intensity = slot2.task.intensity;
  
@@ -388,25 +362,16 @@
  
        pixelcolor2 /= float(numRay);
        d_image[slot2.pixelIndex] += pixelcolor2; 
-       record[slot2.pixelIndex] += 1;
      }
+     __syncthreads();
+     d_image[final_offset] += pixelcolor1;
    }
-   __syncthreads();
+
  
-   if(threadIdx.x == 0 && threadIdx.y == 0)
-   {
-     if(queue.isEmpty()) 
-     { 
-       if(queue.rearIdx() != 1024 && queue.frontIdx() != 1024)
-       {
-        printf("(Dequeue, Empty) BlockIdx.x: %d, BlockIdx.y: %d, rearIdx: %d, frontIdx: %d, numWaitingTasks: %d\n", blockIdx.x, blockIdx.y, queue.rearIdx(), queue.frontIdx(), queue.length());
-       }
-     }
-     else 
-     { 
-       printf("(Dequeue, NOT Empty) BlockIdx.x: %d, BlockIdx.y: %d, rearIdx: %d, frontIdx: %d, numWaitingTasks: %d\n", blockIdx.x, blockIdx.y, queue.rearIdx(), queue.frontIdx(), queue.length());
-     }
-   }
+  //  if(threadIdx.x == 0 && threadIdx.y == 0)
+  //  {
+  //   if(queue.isEmpty()) 
+     
  }
  
  __global__ 

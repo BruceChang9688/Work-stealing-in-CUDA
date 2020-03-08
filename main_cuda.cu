@@ -53,20 +53,20 @@ int main (int argc, char** argv)
 
   Color blackColor(0.0f);
   Image* d_image;
-  Image* record_image;
+  // Image* record_image;
   num_bytes = (width * height) * sizeof(Color);
   checkCudaError(cudaMallocManaged(&d_image, num_bytes));
-  checkCudaError(cudaMallocManaged(&record_image, num_bytes));
+  // checkCudaError(cudaMallocManaged(&record_image, num_bytes));
   // memset(d_image, blackColor, num_bytes);
 
-  int* record;
-  checkCudaError(cudaMallocManaged(&record, width*height*sizeof(int)));
+  // int* record;
+  // checkCudaError(cudaMallocManaged(&record, width*height*sizeof(int)));
 
   for(int k = 0; k < width*height; k++)
   {
     d_image[k] = blackColor;
-    record_image[k] = blackColor;
-    record[k] = 0;
+    // record_image[k] = blackColor;
+    // record[k] = 0;
   }
 
   dim3 threadsPerBlock (16, 16);
@@ -103,19 +103,19 @@ int main (int argc, char** argv)
     k_trace <<<numBlocks, threadsPerBlock, capacity*sizeof(QueueSlot)>>>
     (d_image, d_planes, num_planes, d_spheres, num_spheres, d_lights, 
      num_lights, aspect_ratio, tanFov, width, height, d_state,
-     numRay, portion, capacity, record);
+     numRay, portion, capacity);
     cudaDeviceSynchronize();
     cudaCheckErrors ("Calling kernel k_test");
     
-    for(int u = 0; u < width*height; u++)
-    {
-      if(record[u] < 4)
-      {
-        //printf("pixelIndex: (%d, %d) only has been stolen %d rays\n", u%width, u/width, record[u]);
-        Color color_(1.0f/float(record[u]));
-        record_image[u] = color_;
-      }
-    }
+    // for(int u = 0; u < width*height; u++)
+    // {
+    //   if(record[u] < 4)
+    //   {
+    //     //printf("pixelIndex: (%d, %d) only has been stolen %d rays\n", u%width, u/width, record[u]);
+    //     Color color_(1.0f/float(record[u]));
+    //     record_image[u] = color_;
+    //   }
+    // }
 
     gettimeofday (&t_end, NULL);
     elapsed_time = (t_end.tv_sec - t_start.tv_sec) * 1000.0;
@@ -127,7 +127,6 @@ int main (int argc, char** argv)
     
     //printf("(HOST) d_image color: (%f, %f, %f)\n", d_image[1].r(), d_image[1].g(), d_image[1].b());
     writePPMFile(d_image, "cuda.ppm", width, height);
-    writePPMFile(record_image, "record.ppm", width, height);
   }
   else
     printf ("ERROR. Exiting...\n");
