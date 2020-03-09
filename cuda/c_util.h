@@ -396,7 +396,7 @@
      Light **lights, int *num_lights)
  {
    *num_planes = 2;
-   *num_spheres = 15;
+   *num_spheres = 18;
    *num_lights = 1;
  
    Sphere *h_spheres;
@@ -436,12 +436,20 @@
    //Instantiation of objects
    Plane mirror (Point(0.0f, 0.0, -15.0f), Vector3D (0.0f, 0.0f, 1.0f), 
        Color(0.2f, 0.2f, 0.2f), 1.0f, 0.2f, 0.2f, false);
+  
+  //  Plane mirror1 (Point(-14.0f, 0.0, 0.0f), Vector3D (1.0f, 0.0f, 0.0f), 
+  //      Color(0.2f, 0.2f, 0.2f), 1.0f, 0.2f, 0.2f, false);
+
+  //  Plane mirror2 (Point(13.0f, 0.0, 0.0f), Vector3D (-1.0f, 0.0f, 0.0f), 
+  //      Color(0.2f, 0.2f, 0.2f), 1.0f, 0.2f, 0.2f, false);
  
    Plane floor (Point(0.0f, -2.5f, 0.0f), Vector3D(0.0f, 1.0f, 0.0f),
        Color(1.0f, 1.0f, 1.0f), 0.5f, 0.3f, 0.3f);
  
    memcpy (&h_planes[0], &mirror, sizeof (Plane));
    memcpy (&h_planes[1], &floor, sizeof (Plane));
+  //  memcpy (&h_planes[2], &mirror1, sizeof (Plane));
+  //  memcpy (&h_planes[3], &mirror2, sizeof (Plane));
  
    Sphere sphere0 (Point(-5.0f, 1.0f, 0.0f), Color(0.5, 0.1, 0.1),
        0.5f, 0.5f, 1.0f, 0.6f);
@@ -473,7 +481,13 @@
        1.0f, 0.3f, 1.0f, 0.7f);
   Sphere sphere14 (Point(5.0f, 2.0f, 2.0f), Color(0.5, 0.3, 0.0),
        1.3f, 0.8f, 1.0f, 0.7f);        
- 
+  Sphere sphere15 (Point(8.0f, 14.0f, -3.0f), Color(1.0, 0.0, 0.0),
+       1.5f, 0.6f, 1.0f, 0.4f);
+  Sphere sphere16 (Point(-7.0f, 13.0f, -2.0f), Color(1.0, 0.5, 0.5),
+       1.3f, 0.4f, 1.0f, 0.7f);
+  Sphere sphere17 (Point(-9.0f, 11.0f, -0.0f), Color(0.3, 0.5, 0.5),
+       1.3f, 0.4f, 1.0f, 0.7f);
+  
    memcpy (&h_spheres[0], &sphere0, sizeof (Sphere));
    memcpy (&h_spheres[1], &sphere1, sizeof (Sphere));
    memcpy (&h_spheres[2], &sphere2, sizeof (Sphere));
@@ -489,8 +503,11 @@
    memcpy (&h_spheres[12], &sphere12, sizeof (Sphere));
    memcpy (&h_spheres[13], &sphere13, sizeof (Sphere));
    memcpy (&h_spheres[14], &sphere14, sizeof (Sphere));
+   memcpy (&h_spheres[15], &sphere15, sizeof (Sphere));
+   memcpy (&h_spheres[16], &sphere16, sizeof (Sphere));
+   memcpy (&h_spheres[17], &sphere17, sizeof (Sphere));
  
-   Light frontLight (Point(0.0f, 13.0f, 10.0f), Color(1.0f, 1.0f, 1.0f), 1.0f);
+   Light frontLight (Point(0.0f, 15.0f, 7.0f), Color(1.0f, 1.0f, 1.0f), 1.0f);
  
    memcpy (&h_lights[0], &frontLight, sizeof (Light));
  
