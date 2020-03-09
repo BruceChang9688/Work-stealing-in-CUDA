@@ -1,0 +1,43 @@
+dihzhang@ad3.ucdavis.edu@pc21:~/Documents/Work-stealing-in-CUDA/build$ nvprof ./RayTracing_cuda 1920 1080 60
+==23125== NVPROF is profiling process 23125, command: ./RayTracing_cuda 1920 1080 60
+Blocks: 120 x 68
+Width: 1920 
+Height: 1080
+Fov: 60.00
+The size of allocated shared memory (Bytes): 36864
+The number of stolen rays : 4.000000
+(w/) Rendering time: 0.538 s
+(w/o) Rendering time: 0.568 s
+
+Speedup: 5.302902%
+
+All Finished!
+==23125== Profiling application: ./RayTracing_cuda 1920 1080 60
+==23125== Profiling result:
+            Type  Time(%)      Time     Calls       Avg       Min       Max  Name
+ GPU activities:   51.37%  568.14ms         1  568.14ms  568.14ms  568.14ms  k_trace_without_work_stealing(Color*, Plane*, int, Sphere*, int, Light*, int, float, float, int, int, float*, int, float, int, int*)
+                   48.62%  537.72ms         1  537.72ms  537.72ms  537.72ms  k_trace(Color*, Plane*, int, Sphere*, int, Light*, int, float, float, int, int, float*, int, float, int, int*)
+                    0.01%  96.960us         1  96.960us  96.960us  96.960us  init_stuff(unsigned int, float*)
+                    0.00%  2.4640us         3     821ns     608ns  1.1520us  [CUDA memcpy HtoD]
+      API calls:   87.50%  1.10598s         3  368.66ms  101.65us  568.15ms  cudaDeviceSynchronize
+                   11.47%  145.04ms         3  48.346ms  706.80us  142.49ms  cudaMallocManaged
+                    0.64%  8.0449ms         3  2.6816ms  86.179us  7.5886ms  cudaLaunchKernel
+                    0.32%  4.0263ms         4  1.0066ms  19.688us  3.9398ms  cudaFree
+                    0.04%  471.59us        96  4.9120us     218ns  206.41us  cuDeviceGetAttribute
+                    0.02%  215.53us         4  53.882us  3.7720us  187.47us  cudaMalloc
+                    0.01%  79.414us         1  79.414us  79.414us  79.414us  cuDeviceTotalMem
+                    0.00%  53.386us         1  53.386us  53.386us  53.386us  cuDeviceGetName
+                    0.00%  35.774us         3  11.924us  4.8330us  26.102us  cudaMemcpy
+                    0.00%  2.1480us         3     716ns     278ns  1.4640us  cuDeviceGetCount
+                    0.00%  2.0340us         9     226ns      82ns     693ns  cudaPeekAtLastError
+                    0.00%  1.8640us         1  1.8640us  1.8640us  1.8640us  cuDeviceGetPCIBusId
+                    0.00%  1.0900us         2     545ns     236ns     854ns  cuDeviceGet
+                    0.00%     424ns         1     424ns     424ns     424ns  cuDeviceGetUuid
+                    0.00%     188ns         1     188ns     188ns     188ns  cudaGetLastError
+
+==23125== Unified Memory profiling result:
+Device "GeForce GTX 960 (0)"
+   Count  Avg Size  Min Size  Max Size  Total Size  Total Time  Name
+      30  1.8457MB  256.00KB  2.0000MB  55.37109MB  4.729312ms  Host To Device
+     644  163.78KB  4.0000KB  0.9961MB  103.0000MB  8.822400ms  Device To Host
+Total CPU Page faults: 322
