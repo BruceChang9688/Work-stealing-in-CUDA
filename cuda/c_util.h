@@ -291,40 +291,32 @@
 
    if (x < width && y < height)
    {
-     Point origin(0.0f, 5.0f, 20.0f);
- 
-     // QueueSlot slot;
-     // Task tasks[1];
-     // Task t;
- 
      int numSharedTasks = portion*numRay;
      float m, n, yu, xu;
-     Color pixelcolor0(0.0f);
-  
+
+     Point origin(0.0f, 5.0f, 20.0f);
+     Color pixelcolor(0.0f);
+     Task tasks[1];
+     QueueSlot slot;
+
      for(int i = 0; i < numSharedTasks; i++)
      {
-       Task tasks0[1];
- 
        m = state[i] - 0.5;
        n = state[i] - 0.5;
  
        yu = (1 - 2 * ((y + 0.5 + n) * 1 / float(height))) * tanFov;
        xu = (2 * ((x + 0.5 + m) * 1 / float(width)) - 1) * tanFov * aspect_ratio;
  
-       Ray ray0(origin, Vector3D(xu, yu, -1));
+       Ray ray(origin, Vector3D(xu, yu, -1));
        
-       tasks0[0].ray = ray0;
-       tasks0[0].intensity = 1.0f;
- 
-       QueueSlot slot0;
-       slot0.task.ray = tasks0[0].ray;
-       slot0.task.intensity = tasks0[0].intensity;
-       slot0.pixelIndex = final_offset;
- 
-      //  pixelcolor0 += compute_pixelcolor(tasks0, d_planes, num_planes,
-      //    d_spheres, num_spheres, d_lights, num_lights, 0);
+       tasks[0].ray = ray;
+       tasks[0].intensity = 1.0f;
+       
+       slot.task.ray = tasks[0].ray;
+       slot.task.intensity = tasks[0].intensity;
+       slot.pixelIndex = final_offset;
 
-       QueueStatus status = queue.enqueue(slot0);
+       QueueStatus status = queue.enqueue(slot);
        if(status == QueueStatus::QUEUEISFULL)
        {
          printf("Global ThreadIdx: %d, queue is full.\n", final_offset);
@@ -339,14 +331,10 @@
         // }
      }
      __syncthreads();
-    //  pixelcolor0 /= float(numRay);
-    //  d_image[final_offset] = pixelcolor0; 
  
-     Color pixelcolor1(0.0f);
+     // does its own tasks
      for(int j = numSharedTasks; j < numRay; j++)
      {
-       Task tasks1[1];
- 
        m = state[j] - 0.5;
        n = state[j] - 0.5;
  
@@ -355,15 +343,14 @@
        
        Ray ray1(origin, Vector3D(xu, yu, -1));
        
-       tasks1[0].ray = ray1;
-       tasks1[0].intensity = 1.0;
-       pixelcolor1 += compute_pixelcolor(tasks1, d_planes, num_planes,
+       tasks[0].ray = ray1;
+       tasks[0].intensity = 1.0;
+       pixelcolor += compute_pixelcolor(tasks, d_planes, num_planes,
          d_spheres, num_spheres, d_lights, num_lights, 0);
-       record[final_offset] += 1;
+       //record[final_offset] += 1;
      }
- 
-     pixelcolor1 /= float(numRay);
-     d_image[final_offset] += pixelcolor1; 
+     pixelcolor /= float(numRay);
+     d_image[final_offset] += pixelcolor; 
  
      // stealing tasks from the queue if any
     while(1)
@@ -374,15 +361,13 @@
       //   printf("slot.pixelIndex: %d\n", slot.pixelIndex);
       //   printf("direction: (%f, %f, %f)\n", direction.x(), direction.y(), direction.z());
       // }
-      Color pixelcolor2(0.0f);
-      QueueSlot slot2;
-      Task tasks2[1];
-      QueueStatus status = queue.dequeue(slot2);
-      if(status != QueueStatus::QUEUEISWORKING) { break; }
-      tasks2[0].ray = slot2.task.ray;
-      tasks2[0].intensity = slot2.task.intensity;
 
-      pixelcolor2 = compute_pixelcolor(tasks2, d_planes, num_planes,
+      QueueStatus status = queue.dequeue(slot);
+      if(status != QueueStatus::QUEUEISWORKING) { break; }
+      tasks[0].ray = slot.task.ray;
+      tasks[0].intensity = slot.task.intensity;
+
+      pixelcolor = compute_pixelcolor(tasks, d_planes, num_planes,
         d_spheres, num_spheres, d_lights, num_lights, 0);
  
       // if(blockIdx.x == 0 && blockIdx.y == 28)
@@ -392,12 +377,12 @@
       //     printf("(Dequeue) BlockIdx: (%d, %d), pixelIndex: %d, ray intensity: %f\n", blockIdx.x, blockIdx.y, slot2.pixelIndex, slot2.task.intensity);
       //   }
       // }
-      atomicAdd(&record[slot2.pixelIndex], 1);
-      pixelcolor2 /= float(numRay);
+      //atomicAdd(&record[slot.pixelIndex], 1);
+      pixelcolor /= float(numRay);
 
-      atomicAdd(&(d_image[slot2.pixelIndex].r_()), pixelcolor2.r_());
-      atomicAdd(&(d_image[slot2.pixelIndex].g_()), pixelcolor2.g_());
-      atomicAdd(&(d_image[slot2.pixelIndex].b_()), pixelcolor2.b_());
+      atomicAdd(&(d_image[slot.pixelIndex].r_()), pixelcolor.r_());
+      atomicAdd(&(d_image[slot.pixelIndex].g_()), pixelcolor.g_());
+      atomicAdd(&(d_image[slot.pixelIndex].b_()), pixelcolor.b_());
      }
    }
    __syncthreads();
