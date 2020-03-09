@@ -27,11 +27,6 @@ inline void checkCudaErrorImpl(cudaError_t e, const char* file, int line, bool a
     }
 }
 
-
-#define WORKSTEALING true
-// #define WORKSTEALING false
-
-
 int main (int argc, char** argv)
 {
   if (argc < 3)
@@ -78,8 +73,6 @@ int main (int argc, char** argv)
   dim3 threadsPerBlock (16, 16);
   dim3 numBlocks;
 
-  gettimeofday (&t_start, NULL);
-
   if (c_initScene (&d_spheres, &num_spheres, 
         &d_planes, &num_planes,
         &d_lights, &num_lights))
@@ -91,7 +84,6 @@ int main (int argc, char** argv)
     float tanFov = tan (fov * 0.5 * M_PI / 180.0f);
     float aspect_ratio = float (width) / float (height);
 
-    printf ("Rendering scene:\n");
     printf ("Width: %d \nHeight: %d\nFov: %.2f\n", width, height, fov);
 
     float portion = 0.1f;    // the portion of tasks will be put into the shared memory
@@ -106,22 +98,35 @@ int main (int argc, char** argv)
     cudaDeviceSynchronize();
     cudaCheckErrors ("Calling kernel k_test");
 
-#if WORKSTEALING
+    // w/ work stealing
+    gettimeofday (&t_start, NULL);
+
     k_trace <<<numBlocks, threadsPerBlock, capacity*sizeof(QueueSlot)>>>
     (d_image, d_planes, num_planes, d_spheres, num_spheres, d_lights, 
     num_lights, aspect_ratio, tanFov, width, height, d_state,
     numRay, portion, capacity, record);
-#else
+    cudaDeviceSynchronize();
+    cudaCheckErrors ("Calling kernel k_test");
+
+    gettimeofday (&t_end, NULL);
+    elapsed_time = (t_end.tv_sec - t_start.tv_sec) * 1000.0;
+    elapsed_time += (t_end.tv_usec - t_start.tv_usec) / 1000.0;
+    printf ("(w/) Rendering time: %.3f s\n", elapsed_time/1000.0);
+
+    // w/o work stealing
+    gettimeofday (&t_start, NULL);
+
     k_trace_without_work_stealing <<<numBlocks, threadsPerBlock, capacity*sizeof(QueueSlot)>>>
     (d_image, d_planes, num_planes, d_spheres, num_spheres, d_lights, 
     num_lights, aspect_ratio, tanFov, width, height, d_state,
     numRay, portion, capacity, record);
-#endif
-
     cudaDeviceSynchronize();
     cudaCheckErrors ("Calling kernel k_test");
-    
-// #if WORKSTEALING
+
+    gettimeofday (&t_end, NULL);
+    elapsed_time = (t_end.tv_sec - t_start.tv_sec) * 1000.0;
+    elapsed_time += (t_end.tv_usec - t_start.tv_usec) / 1000.0;
+    printf ("(w/o) Rendering time: %.3f s\n", elapsed_time/1000.0);
 //     for(int u = 0; u < width*height; u++)
 //     {
 //       if(record[u] < numRay)
@@ -131,24 +136,16 @@ int main (int argc, char** argv)
 //         record_image[u] = whiteColor;
 //       }
 //     }
-// #endif
 
-    gettimeofday (&t_end, NULL);
-    elapsed_time = (t_end.tv_sec - t_start.tv_sec) * 1000.0;
-    elapsed_time += (t_end.tv_usec - t_start.tv_usec) / 1000.0;
-
-    printf ("\r100.00%%");
-    printf ("\nFinished!\n");
-    printf ("Rendering time: %.3f s\n", elapsed_time/1000.0);
+    printf ("\nAll Finished!\n");
     
-#if WORKSTEALING
+    
+
     writePPMFile(d_image, "cuda.ppm", width, height);
     writePPMFile(record_image, "record.ppm", width, height);
-#else
+
     writePPMFile(d_image, "cuda_without_work_stealing.ppm", width, height);
     writePPMFile(record_image, "record_without_work_stealing.ppm", width, height);
-#endif
-
   }
   else
     printf ("ERROR. Exiting...\n");
