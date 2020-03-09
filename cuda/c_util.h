@@ -26,7 +26,7 @@
  #include <curand.h>
  #include <curand_kernel.h>
  
- #define MAX_DEPTH 8
+ #define MAX_DEPTH 20
  
  #define cudaCheckErrors(msg) \
    do { \
@@ -503,7 +503,7 @@
      Light **lights, int *num_lights)
  {
    *num_planes = 2;
-   *num_spheres = 18;
+   *num_spheres = 20;
    *num_lights = 1;
  
    Sphere *h_spheres;
@@ -563,37 +563,41 @@
    Sphere sphere1 (Point(3.0f, 0.0f, 0.0f), Color(1.0, 0.1, 0.1),
        1.5f, 0.8f, 1.0f, 0.2f);
    Sphere sphere2 (Point(-3.0f, 0.0f, 0.0f), Color(0.1, 1.0, 0.1),
-       1.5f, 0.5f, 1.0f, 0.7f);
+       1.5f, 0.0f, 0.0f, 0.7f);
    Sphere sphere3 (Point(0.0f, 0.0f, -4.0f), Color(0.5, 0.5, 0.5),
        1.5f, 0.5f, 1.0f, 0.7f);
    Sphere sphere4 (Point(10.0f, 5.0f, -4.0f), Color(1.0, 0.3, 0.8),
-       1.5f, 0.8f, 1.0f, 0.4f);
+       1.5f, 0.9f, 0.0f, 0.1f);
    Sphere sphere5 (Point(8.0f, 0.0f, 4.0f), Color(0.5, 0.5, 1.0),
        1.5f, 0.3f, 1.0f, 0.7f);
    Sphere sphere6 (Point(5.0f, 10.0f, 0.0f), Color(0.3, 0.6, 0.1),
-       1.5f, 1.0f, 1.0f, 0.7f);
+       1.5f, 0.0f, 0.0f, 0.7f);
    Sphere sphere7 (Point(-3.0f, 4.0f, -2.0f), Color(0.1, 0.6, 0.7),
        1.5f, 0.2f, 1.0f, 0.7f);
    Sphere sphere8 (Point(-4.0f, 7.0f, 3.0f), Color(0.5, 0.1, 0.7),
        1.5f, 0.8f, 1.0f, 0.7f);
    Sphere sphere9 (Point(0.0f, 6.0f, 2.0f), Color(1.0, 0.5, 0.0),
-       1.0f, 0.8f, 1.0f, 0.7f); 
-  Sphere sphere10 (Point(3.0f, 4.0f, 0.0f), Color(0.4, 0.8, 0.6),
-       1.2f, 0.5f, 1.0f, 0.2f);
-  Sphere sphere11 (Point(-6.8f, 5.0f, 2.0f), Color(1.0, 0.0, 0.5),
-       1.2f, 0.4f, 1.0f, 0.7f);
-  Sphere sphere12 (Point(-9.5f, 3.0f, 2.0f), Color(1.0, 1.0, 0.1),
-       1.8f, 0.4f, 1.0f, 0.7f);
-  Sphere sphere13 (Point(9.0f, 8.0f, 0.0f), Color(0.0, 0.0, 1.0),
-       1.0f, 0.3f, 1.0f, 0.7f);
-  Sphere sphere14 (Point(5.0f, 2.0f, 2.0f), Color(0.5, 0.3, 0.0),
-       1.3f, 0.8f, 1.0f, 0.7f);        
-  Sphere sphere15 (Point(8.0f, 14.0f, -3.0f), Color(1.0, 0.0, 0.0),
-       1.5f, 0.6f, 1.0f, 0.4f);
-  Sphere sphere16 (Point(-7.0f, 13.0f, -2.0f), Color(1.0, 0.5, 0.5),
-       1.3f, 0.4f, 1.0f, 0.7f);
-  Sphere sphere17 (Point(-9.0f, 11.0f, -0.0f), Color(0.3, 0.5, 0.5),
-       1.3f, 0.4f, 1.0f, 0.7f);
+       1.0f, 0.1f, 0.0f, 0.9f); 
+    Sphere sphere10 (Point(3.0f, 4.0f, 0.0f), Color(0.4, 0.8, 0.6),
+        1.2f, 0.5f, 1.0f, 0.2f);
+    Sphere sphere11 (Point(-6.8f, 5.0f, 2.0f), Color(1.0, 0.0, 0.5),
+        1.2f, 0.4f, 1.0f, 0.7f);
+    Sphere sphere12 (Point(-9.5f, 3.0f, 2.0f), Color(1.0, 1.0, 0.1),
+        1.8f, 1.0f, 0.0f, 0.9f);
+    Sphere sphere13 (Point(9.0f, 8.0f, 0.0f), Color(0.0, 0.0, 1.0),
+        1.0f, 0.3f, 1.0f, 0.7f);
+    Sphere sphere14 (Point(5.0f, 2.0f, 2.0f), Color(0.5, 0.3, 0.0),
+        1.3f, 0.8f, 1.0f, 0.7f);        
+    Sphere sphere15 (Point(8.0f, 14.0f, -3.0f), Color(1.0, 0.0, 0.0),
+        1.5f, 0.6f, 1.0f, 0.4f);
+    Sphere sphere16 (Point(-7.0f, 13.0f, -2.0f), Color(1.0, 0.5, 0.5),
+        1.3f, 1.0f, 0.0f, 0.7f);
+    Sphere sphere17 (Point(-9.0f, 11.0f, -0.0f), Color(0.3, 0.5, 0.5),
+        1.3f, 0.4f, 1.0f, 0.7f);
+    Sphere sphere18 (Point(25.0f, 8.0f, -1.5f), Color(0.9, 0.1, 0.1),
+        10.0f, 0.4f, 1.0f, 0.7f);
+    Sphere sphere19 (Point(-25.0f, 8.0f, -0.5f), Color(0.2, 0.2, 1.0),
+        10.0f, 0.1f, 0.0f, 1.0f);
   
    memcpy (&h_spheres[0], &sphere0, sizeof (Sphere));
    memcpy (&h_spheres[1], &sphere1, sizeof (Sphere));
@@ -613,6 +617,8 @@
    memcpy (&h_spheres[15], &sphere15, sizeof (Sphere));
    memcpy (&h_spheres[16], &sphere16, sizeof (Sphere));
    memcpy (&h_spheres[17], &sphere17, sizeof (Sphere));
+   memcpy (&h_spheres[18], &sphere18, sizeof (Sphere));
+   memcpy (&h_spheres[19], &sphere19, sizeof (Sphere));
  
    Light frontLight (Point(0.0f, 15.0f, 7.0f), Color(1.0f, 1.0f, 1.0f), 1.0f);
  
