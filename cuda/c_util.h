@@ -396,7 +396,7 @@
      Light **lights, int *num_lights)
  {
    *num_planes = 2;
-   *num_spheres = 11;
+   *num_spheres = 15;
    *num_lights = 1;
  
    Sphere *h_spheres;
@@ -465,6 +465,14 @@
        1.0f, 0.8f, 1.0f, 0.7f); 
   Sphere sphere10 (Point(3.0f, 4.0f, 0.0f), Color(0.4, 0.8, 0.6),
        1.2f, 0.5f, 1.0f, 0.2f);
+  Sphere sphere11 (Point(-6.8f, 5.0f, 2.0f), Color(1.0, 0.0, 0.5),
+       1.2f, 0.4f, 1.0f, 0.7f);
+  Sphere sphere12 (Point(-9.5f, 3.0f, 2.0f), Color(1.0, 1.0, 0.1),
+       1.8f, 0.4f, 1.0f, 0.7f);
+  Sphere sphere13 (Point(9.0f, 8.0f, 0.0f), Color(0.0, 0.0, 1.0),
+       1.0f, 0.3f, 1.0f, 0.7f);
+  Sphere sphere14 (Point(5.0f, 2.0f, 2.0f), Color(0.5, 0.3, 0.0),
+       1.3f, 0.8f, 1.0f, 0.7f);        
  
    memcpy (&h_spheres[0], &sphere0, sizeof (Sphere));
    memcpy (&h_spheres[1], &sphere1, sizeof (Sphere));
@@ -477,6 +485,10 @@
    memcpy (&h_spheres[8], &sphere8, sizeof (Sphere));
    memcpy (&h_spheres[9], &sphere9, sizeof (Sphere));
    memcpy (&h_spheres[10], &sphere10, sizeof (Sphere));
+   memcpy (&h_spheres[11], &sphere11, sizeof (Sphere));
+   memcpy (&h_spheres[12], &sphere12, sizeof (Sphere));
+   memcpy (&h_spheres[13], &sphere13, sizeof (Sphere));
+   memcpy (&h_spheres[14], &sphere14, sizeof (Sphere));
  
    Light frontLight (Point(0.0f, 13.0f, 10.0f), Color(1.0f, 1.0f, 1.0f), 1.0f);
  
