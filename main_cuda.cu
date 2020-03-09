@@ -45,7 +45,7 @@ int main (int argc, char** argv)
   }
 
   timeval t_start, t_end;
-  double elapsed_time;
+  double elapsed_time_w_work_stealing, elapsed_time_wo_work_stealing;
   int num_bytes, num_spheres, num_planes, num_lights;
   Sphere *d_spheres;
   Plane *d_planes;
@@ -86,8 +86,8 @@ int main (int argc, char** argv)
 
     printf ("Width: %d \nHeight: %d\nFov: %.2f\n", width, height, fov);
 
-    float portion = 0.1f;    // the portion of tasks will be put into the shared memory
-    int numRay = 40;    // # of rays for antialiasing
+    float portion = 0.4f;    // the portion of tasks will be put into the shared memory
+    int numRay = 10;    // # of rays for antialiasing
     int capacity = portion*numRay*threadsPerBlock.x*threadsPerBlock.y;
     printf("The size of allocated shared memory (Bytes): %lu\n", capacity*sizeof(QueueSlot));
     printf("The number of stolen rays : %f\n", numRay*portion);
@@ -109,9 +109,9 @@ int main (int argc, char** argv)
     cudaCheckErrors ("Calling kernel k_test");
 
     gettimeofday (&t_end, NULL);
-    elapsed_time = (t_end.tv_sec - t_start.tv_sec) * 1000.0;
-    elapsed_time += (t_end.tv_usec - t_start.tv_usec) / 1000.0;
-    printf ("(w/) Rendering time: %.3f s\n", elapsed_time/1000.0);
+    elapsed_time_w_work_stealing = (t_end.tv_sec - t_start.tv_sec) * 1000.0;
+    elapsed_time_w_work_stealing += (t_end.tv_usec - t_start.tv_usec) / 1000.0;
+    printf ("(w/) Rendering time: %.3f s\n", elapsed_time_w_work_stealing/1000.0);
 
     // w/o work stealing
     gettimeofday (&t_start, NULL);
@@ -124,9 +124,9 @@ int main (int argc, char** argv)
     cudaCheckErrors ("Calling kernel k_test");
 
     gettimeofday (&t_end, NULL);
-    elapsed_time = (t_end.tv_sec - t_start.tv_sec) * 1000.0;
-    elapsed_time += (t_end.tv_usec - t_start.tv_usec) / 1000.0;
-    printf ("(w/o) Rendering time: %.3f s\n", elapsed_time/1000.0);
+    elapsed_time_wo_work_stealing = (t_end.tv_sec - t_start.tv_sec) * 1000.0;
+    elapsed_time_wo_work_stealing += (t_end.tv_usec - t_start.tv_usec) / 1000.0;
+    printf ("(w/o) Rendering time: %.3f s\n", elapsed_time_wo_work_stealing/1000.0);
 //     for(int u = 0; u < width*height; u++)
 //     {
 //       if(record[u] < numRay)
@@ -136,7 +136,8 @@ int main (int argc, char** argv)
 //         record_image[u] = whiteColor;
 //       }
 //     }
-
+    double speedup = 100*(elapsed_time_wo_work_stealing - elapsed_time_w_work_stealing)/elapsed_time_wo_work_stealing;
+    printf("\nSpeedup: %f%%\n", speedup);
     printf ("\nAll Finished!\n");
     
     
