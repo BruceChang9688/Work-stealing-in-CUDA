@@ -305,11 +305,11 @@ __global__ void k_trace(Image *d_image,
 
     for (int i = 0; i < numSharedTasks; i++)
     {
-      m = state[i] - 0.5;
-      n = state[i] - 0.5;
+      m = state[0] - 0.5;
+      n = state[0] - 0.5;
 
-      yu = (1 - 2 * ((y + 0.5 + n) * 1 / float(height))) * tanFov;
-      xu = (2 * ((x + 0.5 + m) * 1 / float(width)) - 1) * tanFov * aspect_ratio;
+      yu = (1 - 2 * ((y + 0.5 + n) * 1 / height)) * tanFov;
+      xu = (2 * ((x + 0.5 + m) * 1 / width) - 1) * tanFov * aspect_ratio;
 
       Ray ray(origin, Vector3D(xu, yu, -1));
 
@@ -321,10 +321,10 @@ __global__ void k_trace(Image *d_image,
       slot.pixelIndex = final_offset;
 
       QueueStatus status = queue.enqueue(slot);
-      if (status == QueueStatus::QUEUEISFULL)
-      {
-        printf("Global ThreadIdx: %d, queue is full.\n", final_offset);
-      }
+      // if (status == QueueStatus::QUEUEISFULL)
+      // {
+      //   printf("Global ThreadIdx: %d, queue is full.\n", final_offset);
+      // }
 
       // if(blockIdx.x == 0 && blockIdx.y == 28)
       // {
@@ -339,8 +339,8 @@ __global__ void k_trace(Image *d_image,
     // does its own tasks
     for (int j = numSharedTasks; j < numRay; j++)
     {
-      m = state[j] - 0.5;
-      n = state[j] - 0.5;
+      m = state[0] - 0.5;
+      n = state[0] - 0.5;
 
       yu = (1 - 2 * ((y + 0.5 + n) * 1 / float(height))) * tanFov;
       xu = (2 * ((x + 0.5 + m) * 1 / float(width)) - 1) * tanFov * aspect_ratio;
@@ -390,6 +390,8 @@ __global__ void k_trace(Image *d_image,
       atomicAdd(&(d_image[slot.pixelIndex].r_()), pixelcolor.r_());
       atomicAdd(&(d_image[slot.pixelIndex].g_()), pixelcolor.g_());
       atomicAdd(&(d_image[slot.pixelIndex].b_()), pixelcolor.b_());
+
+      record[final_offset] += 1;
     }
   }
   __syncthreads();

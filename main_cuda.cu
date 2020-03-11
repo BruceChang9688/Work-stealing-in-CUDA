@@ -86,7 +86,7 @@ int main (int argc, char** argv)
 
     printf ("Width: %d \nHeight: %d\nFov: %.2f\n", width, height, fov);
 
-    float portion = 0.4f;    // the portion of tasks will be put into the shared memory
+    float portion = 0.5f;    // the portion of tasks will be put into the shared memory
     int numRay = 10;    // # of rays for antialiasing
     int capacity = portion*numRay*threadsPerBlock.x*threadsPerBlock.y;
     printf("The size of allocated shared memory (Bytes): %lu\n", capacity*sizeof(QueueSlot));
@@ -127,26 +127,33 @@ int main (int argc, char** argv)
     elapsed_time_wo_work_stealing = (t_end.tv_sec - t_start.tv_sec) * 1000.0;
     elapsed_time_wo_work_stealing += (t_end.tv_usec - t_start.tv_usec) / 1000.0;
     printf ("(w/o) Rendering time: %.3f s\n", elapsed_time_wo_work_stealing/1000.0);
-//     for(int u = 0; u < width*height; u++)
-//     {
-//       if(record[u] < numRay)
-//       {
-//         printf("pixelIndex: (%d, %d) only has been stolen %d rays\n", u%width, u/width, record[u]);
-//         //Color color_(1.0f/float(record[u]));
-//         record_image[u] = whiteColor;
-//       }
-//     }
-    double speedup = 100*(elapsed_time_wo_work_stealing - elapsed_time_w_work_stealing)/elapsed_time_wo_work_stealing;
+
+
+    double speedup = 100*(elapsed_time_wo_work_stealing/elapsed_time_w_work_stealing - 1);
     printf("\nSpeedup: %f%%\n", speedup);
     printf ("\nAll Finished!\n");
     
     
+    int max = 0;
+    for(int u = 0; u < width*height; u++)
+    {
+      if(record[u] > max)
+      {
+        max = record[u];
+      }
+    }
+    for(int u = 0; u < width*height; u++)
+    {
+      float color = (float)record[u] / max;
+      record_image[u] = Color(color, color, color);
+    }
 
-    writePPMFile(d_image, "cuda.ppm", width, height);
+
+    // writePPMFile(d_image, "cuda.ppm", width, height);
     writePPMFile(record_image, "record.ppm", width, height);
 
-    writePPMFile(d_image, "cuda_without_work_stealing.ppm", width, height);
-    writePPMFile(record_image, "record_without_work_stealing.ppm", width, height);
+    // writePPMFile(d_image, "cuda_without_work_stealing.ppm", width, height);
+    // writePPMFile(record_image, "record_without_work_stealing.ppm", width, height);
   }
   else
     printf ("ERROR. Exiting...\n");
