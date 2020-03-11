@@ -571,8 +571,8 @@ bool c_initScene(Sphere **spheres, int *num_spheres,
   //  memcpy (&h_planes[2], &mirror1, sizeof (Plane));
   //  memcpy (&h_planes[3], &mirror2, sizeof (Plane));
 
-  Sphere sphere0(Point(-5.0f, 1.0f, 0.0f), Color(0.5, 0.1, 0.1),
-                 0.5f, 0.5f, 1.0f, 0.6f);
+  Sphere sphere0(Point(-6.5f, 1.0f, 0.0f), Color(0.5, 0.1, 0.1),
+                 1.5f, 0.5f, 1.0f, 0.6f);
   Sphere sphere1(Point(3.0f, 0.0f, 0.0f), Color(1.0, 0.1, 0.1),
                  1.5f, 0.8f, 1.0f, 0.2f);
   Sphere sphere2(Point(-3.0f, 0.0f, 0.0f), Color(0.1, 1.0, 0.1),
@@ -590,15 +590,15 @@ bool c_initScene(Sphere **spheres, int *num_spheres,
   Sphere sphere8(Point(-4.0f, 7.0f, 3.0f), Color(0.5, 0.1, 0.7),
                  1.5f, 0.8f, 1.0f, 0.7f);
   Sphere sphere9(Point(0.0f, 6.0f, 2.0f), Color(1.0, 0.5, 0.0),
-                 1.0f, 0.1f, 0.0f, 0.9f);
+                 2.0f, 0.1f, 0.0f, 0.9f);
   Sphere sphere10(Point(3.0f, 4.0f, 0.0f), Color(0.4, 0.8, 0.6),
-                  1.2f, 0.5f, 1.0f, 0.2f);
+                  1.7f, 0.5f, 1.0f, 0.2f);
   Sphere sphere11(Point(-6.8f, 5.0f, 2.0f), Color(1.0, 0.0, 0.5),
                   1.2f, 0.4f, 1.0f, 0.7f);
   Sphere sphere12(Point(-9.5f, 3.0f, 2.0f), Color(1.0, 1.0, 0.1),
                   1.8f, 1.0f, 0.0f, 0.9f);
   Sphere sphere13(Point(9.0f, 8.0f, 0.0f), Color(0.0, 0.0, 1.0),
-                  1.0f, 0.3f, 1.0f, 0.7f);
+                  1.7f, 0.3f, 1.0f, 0.7f);
   Sphere sphere14(Point(5.0f, 2.0f, 2.0f), Color(0.5, 0.3, 0.0),
                   1.3f, 0.8f, 1.0f, 0.7f);
   Sphere sphere15(Point(8.0f, 14.0f, -3.0f), Color(1.0, 0.0, 0.0),
