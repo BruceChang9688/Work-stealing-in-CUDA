@@ -32,7 +32,7 @@ In order to let threads steal works from other threads in the same block, we imp
 We implement anti aliasing by adding more random rays to each pixel, as shown in **Figure 3**. To create an unbalanced workloads environment, applying anti aliasing is useful since one single pixel can emit different angle of rays, which may cause different number of reflection for each rays. For example, some rays may hit directly on the mirror and reflect to nothing, and some other rays may hit multiple objects before they stops. These differences can result from randomly created rays but cause highly distinct outcomes.
 
 <div align="center">
-    <img src="./assets/fig_3_antialiasing.png" width="300" height="150"/>
+    <img src="./assets/fig_3_antialiasing.png" width="500" height="250"/>
 </div>
 
 _Figure 3. The image on the left is the original image and the image on the right apply antialiasing respectively._
