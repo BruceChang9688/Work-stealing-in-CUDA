@@ -18,7 +18,7 @@ We generate 21 spheres, one light source, one floor and one mirror in our scene.
 ### 3. Unbalanced works
 A work, or a task, means a self-defined data type that consists of the ray and the corresponding pixel index. For each pixel, we add 10 random rays emitted from the position of the camera through the position of that pixel, as **Figure 2** shown below. The random distribution of rays is used to get the effect of antialiasing. For each ray, when it hits mirror surface object, we generate a new ray based on the law of reflection from the hitting point. In this case, different rays have different depth (different number of reflections) when it goes through the scene so that every pixel has different workloads.
 
-<div style="text-align:center">
+<div align="center">
     <img src="./assets/fig_2.png" width="400" height="100"/>
 </div>
 
@@ -31,7 +31,7 @@ In order to let threads steal works from other threads in the same block, we imp
 ### 1. Anti aliasing effect
 We implement anti aliasing by adding more random rays to each pixel, as shown in **Figure 3**. To create an unbalanced workloads environment, applying anti aliasing is useful since one single pixel can emit different angle of rays, which may cause different number of reflection for each rays. For example, some rays may hit directly on the mirror and reflect to nothing, and some other rays may hit multiple objects before they stops. These differences can result from randomly created rays but cause highly distinct outcomes.
 
-<div style="text-align:center">
+<div align="center">
     <img src="./assets/fig_3_antialiasing.png" width="300" height="150"/>
 </div>
 
