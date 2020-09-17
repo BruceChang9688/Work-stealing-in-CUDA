@@ -49,7 +49,7 @@ To measure their runtime, we generate 10 images with 1920x1080 pixels for each m
 |                           |                         |
 |---------------------------|-------------------------|
 | ![](./assets/table_1.png) | ![](./assets/fig_4.png) |
-|<div style="text-align: left"> _Table 1. The runtimes of the three method._ </div> | <div style="text-align: left"> _Figure 4. The comparison between M2 and M3_ </div>|
+| <div style="text-align: left"> _Table 1. The runtimes of the three method._ </div> | <div style="text-align: left"> _Figure 4. The comparison between M2 and M3_ </div> |
 
 
 ![](./assets/fig_5.png)
@@ -69,10 +69,10 @@ _Figure 6. The distribution of number of stolen works among threads. The brighte
 
 If we look closer, as shown in **Figure 7**, we can recognize that many “sticks” stack together horizontally and all of them are 16 pixel wide. This reveals each column has multiple blocks, which have 16x16 threads, stack together. If we look even closer, like **Figure 8**, the “sticks” in **Figure 7** are actually a warp, which is composed with 2x16 threads. Therefore, every pixels in one “stick” has the same color because they are in the same warp.
 
-|                          |                          |
-|            -             |            -             |
-![](./assets/fig_7.png)  |  ![](./assets/fig_8.png)
-<div style="text-align: left"> _Figure 7. A zoom-in version of Figure 6. Each column is 16 pixels wide, which matches the width of a 16x16 thread block._ </div> | <div style="text-align: left"> _Figure 8. A zoom-in version of Figure 7. Each row contains 2x16 pixels, which matches the number of threads in a warp. This figure represents a block since it has 16x16 pixels._ </div>
+|                         |                         |
+|-------------------------|-------------------------|
+| ![](./assets/fig_7.png) | ![](./assets/fig_8.png) |
+| <div style="text-align:left"> _Figure 7. A zoom-in version of Figure 6. Each column is 16 pixels wide, which matches the width of a 16x16 thread block._ </div> | <div style="text-align:left"> _Figure 8. A zoom-in version of Figure 7. Each row contains 2x16 pixels, which matches the number of threads in a warp. This figure represents a block since it has 16x16 pixels._ </div> |
 
 ## IV. Discussion
 
