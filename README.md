@@ -10,7 +10,7 @@ One barrier in improving the performance of ray tracing is its unbalanced worklo
 ## II. Implementation (Machine: GTX 960)
 
 ### 1. Ray tracing library
-We use the basic ray tracing library from here. In this library, each thread is responsible for one pixel and it works on only one ray generated from camera through each pixel on the image.
+We use the basic ray tracing library from [here](https://github.com/rodrimc/RayTracing_Parallel). In this library, each thread is responsible for one pixel and it works on only one ray generated from camera through each pixel on the image.
 
 ### 2. Scene
 We generate 21 spheres, one light source, one floor and one mirror in our scene. The light source emits the light from the top to the floor and the mirror is behind all the spheres vertically.
